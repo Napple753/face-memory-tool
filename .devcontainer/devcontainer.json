@@ -28,7 +28,12 @@
     "5173": { "label": "Frontend dev server (Vite)" }
   },
 
-  "postCreateCommand": "pip install -r backend/requirements.txt --break-system-packages && cd frontend && npm install",
+  "mounts": [
+    "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached,readonly"
+  ],
+
+  "postCreateCommand": "git config --global --add safe.directory /workspace && pip install -r backend/requirements.txt --break-system-packages && cd frontend && npm install",
 
   "remoteUser": "root"
 }
