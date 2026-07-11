@@ -1,0 +1,18 @@
+# Dev-container image: has BOTH Python and Node available,
+# since during development you'll run backend and frontend separately
+# (backend via uvicorn --reload, frontend via vite dev server).
+# This is NOT used for the final shipped image — see ./Dockerfile for that.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git build-essential \
+    libglib2.0-0 libsm6 libxext6 libxrender1 \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Keep the container alive for VS Code to attach to;
+# actual dev servers are started manually from the VS Code terminal.
+CMD ["sleep", "infinity"]

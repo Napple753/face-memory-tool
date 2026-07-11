@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ..:/workspace:cached
+    ports:
+      - "8000:8000"   # backend (uvicorn --reload)
+      - "5173:5173"   # frontend (vite dev server)
+    command: sleep infinity
