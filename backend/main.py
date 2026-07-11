@@ -12,14 +12,21 @@ Responsibilities (to implement):
 - Print the reachable URL clearly on startup (see APP_PORT env var).
 """
 
-# import uvicorn
-# from fastapi import FastAPI
-# from fastapi.staticfiles import StaticFiles
-#
-# app = FastAPI()
-# app.mount("/", StaticFiles(directory="static", html=True), name="static")
-#
-# if __name__ == "__main__":
-#     port = int(os.environ.get("APP_PORT", 8000))
-#     print(f"Open this in your browser: http://localhost:{port}")
-#     uvicorn.run(app, host="0.0.0.0", port=port)
+import os
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_dir):
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("APP_PORT", 8000))
+    print(f"Open this in your browser: http://localhost:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

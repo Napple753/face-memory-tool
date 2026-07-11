@@ -1,6 +1,10 @@
-<!-- Stub: App.vue -->
 <template>
-  <div><!-- to implement --></div>
+  <v-app>
+    <v-app-bar title="Face Memory Tool" />
+    <v-main>
+      <v-container />
+    </v-main>
+  </v-app>
 </template>
 
 <script setup lang="ts">
