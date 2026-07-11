@@ -14,10 +14,24 @@ Responsibilities (to implement):
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 
+import excel_parser
+
 app = FastAPI()
+
+
+@app.post("/api/upload/excel")
+async def upload_excel(file: UploadFile):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Please upload a .xlsx file")
+    content = await file.read()
+    try:
+        return excel_parser.parse_excel(content)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read this Excel file")
+
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
