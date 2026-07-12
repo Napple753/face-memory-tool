@@ -1,36 +1,259 @@
 <!DOCTYPE html>
 <!--
   Skeleton for the FINAL deliverable file.
-  html_generator.py fills in the placeholders below and inlines quiz.js.
-  Plain HTML/CSS/JS only -- no framework, no external requests, desktop only.
+  html_generator.py fills in the __TOKEN__ placeholders below and inlines
+  quiz.js. Plain HTML/CSS/JS only -- no framework, no external requests,
+  desktop only.
 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <title>__TITLE__</title>
 <style>
-/* To implement: layout for Mode A (browse) and Mode B (quiz),
-   hover name-tag popup, search/highlight box, checkbox division list
-   with select-all, flashcard quiz screen. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #212121;
+    background: #fafafa;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 24px;
+    background: #1e293b;
+    color: #fff;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+  }
+  nav {
+    display: flex;
+    gap: 8px;
+  }
+  nav button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  nav button.active {
+    background: #fff;
+    color: #1e293b;
+    font-weight: 600;
+  }
+  main {
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  section[hidden] { display: none; }
+
+  #search-box {
+    width: 100%;
+    max-width: 360px;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+  #browse-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    line-height: 0;
+  }
+  #composite-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .hover-region {
+    position: absolute;
+    border: 2px solid transparent;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+  .hover-region:hover,
+  .hover-region.highlighted {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.15);
+  }
+  .hover-region.dimmed {
+    opacity: 0.2;
+  }
+  .hover-region .tag {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 4px 8px;
+    font-size: 13px;
+    line-height: 1.3;
+    white-space: nowrap;
+    border-radius: 4px;
+    display: none;
+    pointer-events: none;
+    margin-bottom: 4px;
+    z-index: 2;
+  }
+  .hover-region:hover .tag,
+  .hover-region.highlighted .tag {
+    display: block;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 480px;
+  }
+  #division-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin: 12px 0;
+  }
+  .division-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
+  #quiz-setup button,
+  #quiz-session button,
+  #quiz-complete button {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  #quiz-setup button:hover,
+  #quiz-session button:hover,
+  #quiz-complete button:hover {
+    background: #1d4ed8;
+  }
+  #btn-forgot {
+    background: #6b7280;
+  }
+  #btn-forgot:hover {
+    background: #4b5563;
+  }
+  #quiz-progress {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+  }
+  #quiz-face-crop {
+    position: relative;
+    overflow: hidden;
+    width: 260px;
+    max-width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #eee;
+  }
+  #quiz-face-crop img {
+    position: absolute;
+    max-width: none;
+  }
+  #quiz-answer {
+    margin-top: 16px;
+  }
+  #quiz-answer h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+  }
+  #answer-division {
+    color: #666;
+    margin: 0 0 12px;
+  }
+  #answer-text {
+    white-space: pre-line;
+    line-height: 1.5;
+  }
+  .quiz-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  #quiz-complete p {
+    font-size: 16px;
+  }
 </style>
 </head>
 <body>
 
-<!-- Mode switch tabs -->
-<!-- Mode A: browse view -->
-<!--   <img id="group-photo" src="data:image/jpeg;base64,__IMAGE_BASE64__" /> -->
-<!--   search box + hover/click name tags -->
+<header>
+  <h1 id="page-title">__TITLE__</h1>
+  <nav>
+    <button id="tab-browse" class="active" type="button">Browse</button>
+    <button id="tab-quiz" type="button">Quiz</button>
+  </nav>
+</header>
 
-<!-- Mode B: quiz view -->
-<!--   division checkboxes + select-all -->
-<!--   face-only question, show-answer, remembered/forgot buttons -->
+<main>
+  <section id="view-browse">
+    <input id="search-box" type="text" placeholder="Search by name&hellip;" autocomplete="off" />
+    <div id="browse-wrap">
+      <img id="composite-image" src="__IMAGE_DATA_URL__" alt="Group photo" />
+    </div>
+  </section>
+
+  <section id="view-quiz" hidden>
+    <div id="quiz-setup" class="card">
+      <strong>Which divisions do you want to be quizzed on?</strong>
+      <label class="division-option">
+        <input type="checkbox" id="select-all" checked />
+        <strong>Select all</strong>
+      </label>
+      <div id="division-checkboxes"></div>
+      <button id="start-quiz" type="button">Start quiz</button>
+    </div>
+
+    <div id="quiz-session" class="card" hidden>
+      <div id="quiz-progress"></div>
+      <div id="quiz-face-crop"><img id="quiz-face-img" alt="Face" /></div>
+      <button id="show-answer" type="button">Show answer</button>
+      <div id="quiz-answer" hidden>
+        <h2 id="answer-name"></h2>
+        <p id="answer-division"></p>
+        <p id="answer-text"></p>
+        <div class="quiz-buttons">
+          <button id="btn-remembered" type="button">Remembered</button>
+          <button id="btn-forgot" type="button">Forgot</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-complete" class="card" hidden>
+      <p>Quiz complete! Nice work.</p>
+      <button id="restart-quiz" type="button">Restart</button>
+    </div>
+  </section>
+</main>
 
 <script>
-// __MEMBER_DATA_JSON__ gets injected here by html_generator.py
-const MEMBER_DATA = /* __MEMBER_DATA_JSON__ */ [];
+// Injected by html_generator.py
+const MEMBER_DATA = __MEMBER_DATA_JSON__;
+const IMAGE_WIDTH = __IMAGE_WIDTH__;
+const IMAGE_HEIGHT = __IMAGE_HEIGHT__;
 </script>
 <script>
-// quiz.js content gets inlined here by html_generator.py
+__QUIZ_JS__
 </script>
 
 </body>

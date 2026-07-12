@@ -40,6 +40,9 @@ export interface ProgressExport {
   boxes: FaceBox[]
   groupPhotoDataUrl: string
   missingPhotoOverrides: Record<string, string>
+  finalCompositeImageDataUrl: string
+  finalCompositeWidth: number
+  finalCompositeHeight: number
 }
 
 // Raw import data from the Excel upload step, before column mapping is applied.
@@ -75,4 +78,16 @@ export interface CompositeMemberInput {
   id: string
   name: string
   photoDataUrl?: string
+}
+
+export interface ExportMemberInput {
+  id: string
+  name: string
+  division: string
+  answerText: string
+  x: number
+  y: number
+  w: number
+  h: number
+  location: FaceBox['location']
 }

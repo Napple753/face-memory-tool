@@ -25,6 +25,9 @@ export const useAnnotationStore = defineStore('annotation', {
     boxes: [] as FaceBox[],
     selectedBoxId: null as string | null,
     missingPhotoOverrides: {} as Record<string, string>, // memberId -> manually uploaded photo, for the bottom grid
+    finalCompositeImageDataUrl: '' as string, // group photo + bottom grid merged, from the last finalized composite
+    finalCompositeWidth: 0,
+    finalCompositeHeight: 0,
   }),
   getters: {
     selectedBox: (state): FaceBox | null =>
@@ -129,6 +132,9 @@ export const useAnnotationStore = defineStore('annotation', {
         location: box.location,
       }))
       this.boxes = [...inPhotoBoxes, ...gridBoxes]
+      this.finalCompositeImageDataUrl = result.compositeImageDataUrl
+      this.finalCompositeWidth = result.imageWidth
+      this.finalCompositeHeight = result.imageHeight
     },
     exportState(): ProgressExport {
       return {
@@ -138,6 +144,9 @@ export const useAnnotationStore = defineStore('annotation', {
         boxes: this.boxes,
         groupPhotoDataUrl: this.groupPhotoDataUrl,
         missingPhotoOverrides: this.missingPhotoOverrides,
+        finalCompositeImageDataUrl: this.finalCompositeImageDataUrl,
+        finalCompositeWidth: this.finalCompositeWidth,
+        finalCompositeHeight: this.finalCompositeHeight,
       }
     },
     // Restores members/boxes/photo directly, bypassing the Excel import and
@@ -154,6 +163,9 @@ export const useAnnotationStore = defineStore('annotation', {
       this.groupPhotoHeight = 0
       this.selectedBoxId = null
       this.missingPhotoOverrides = data.missingPhotoOverrides ?? {}
+      this.finalCompositeImageDataUrl = data.finalCompositeImageDataUrl ?? ''
+      this.finalCompositeWidth = data.finalCompositeWidth ?? 0
+      this.finalCompositeHeight = data.finalCompositeHeight ?? 0
     },
   },
 })

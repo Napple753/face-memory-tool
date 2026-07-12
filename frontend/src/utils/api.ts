@@ -1,7 +1,13 @@
 // Typed wrapper around backend calls: uploadExcel, uploadPhoto,
 // detectFaces, composite, exportHtml.
 
-import type { CompositeMemberInput, CompositeResult, DetectedBox, ExcelParseResult } from '../types'
+import type {
+  CompositeMemberInput,
+  CompositeResult,
+  DetectedBox,
+  ExcelParseResult,
+  ExportMemberInput,
+} from '../types'
 
 export async function uploadExcel(file: File): Promise<ExcelParseResult> {
   const formData = new FormData()
@@ -50,4 +56,23 @@ export async function composite(payload: {
     throw new Error(body?.detail ?? `Composite failed (${response.status})`)
   }
   return response.json()
+}
+
+export async function exportHtml(payload: {
+  title: string
+  compositeImageDataUrl: string
+  imageWidth: number
+  imageHeight: number
+  members: ExportMemberInput[]
+}): Promise<string> {
+  const response = await fetch('/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail ?? `Export failed (${response.status})`)
+  }
+  return response.text()
 }

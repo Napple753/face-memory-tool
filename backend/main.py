@@ -15,11 +15,13 @@ Responsibilities (to implement):
 import os
 
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import excel_parser
 import face_detector
+import html_generator
 import image_compositor
 
 app = FastAPI()
@@ -37,6 +39,26 @@ class CompositeRequest(BaseModel):
     rows: int | None = None
     thumbWidth: int | None = None
     thumbHeight: int | None = None
+
+
+class ExportMember(BaseModel):
+    id: str
+    name: str
+    division: str
+    answerText: str
+    x: int
+    y: int
+    w: int
+    h: int
+    location: str
+
+
+class ExportRequest(BaseModel):
+    title: str
+    compositeImageDataUrl: str
+    imageWidth: int
+    imageHeight: int
+    members: list[ExportMember]
 
 
 @app.post("/api/upload/excel")
@@ -76,6 +98,21 @@ async def composite(req: CompositeRequest):
         )
     except Exception:
         raise HTTPException(status_code=400, detail="Could not build the composite image")
+
+
+@app.post("/api/export")
+async def export_html(req: ExportRequest):
+    try:
+        page = html_generator.generate_html(
+            title=req.title,
+            composite_image_data_url=req.compositeImageDataUrl,
+            image_width=req.imageWidth,
+            image_height=req.imageHeight,
+            members=[m.model_dump() for m in req.members],
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not generate the export file")
+    return Response(content=page, media_type="text/html")
 
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
