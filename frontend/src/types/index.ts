@@ -9,12 +9,20 @@ export interface Member {
 }
 
 export interface FaceBox {
+  id: string
   memberId: string | null
   x: number
   y: number
   w: number
   h: number
   location: 'in-photo' | 'bottom-grid' | 'placeholder'
+}
+
+export interface DetectedBox {
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface ColumnMapping {

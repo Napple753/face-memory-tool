@@ -33,7 +33,7 @@
     "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached,readonly"
   ],
 
-  "postCreateCommand": "git config --global --add safe.directory /workspace && pip install -r backend/requirements.txt --break-system-packages && cd frontend && npm install",
+  "postCreateCommand": "git config --global --add safe.directory /workspace && pip install -r backend/requirements.txt --break-system-packages && bash backend/download_models.sh && cd frontend && npm install",
 
   "remoteUser": "root"
 }

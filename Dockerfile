@@ -13,13 +13,14 @@ WORKDIR /app
 
 # opencv-python-headless still needs a couple of system libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libglib2.0-0 libsm6 libxext6 libxrender1 \
+    libglib2.0-0 libsm6 libxext6 libxrender1 curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
+RUN bash download_models.sh
 COPY --from=frontend-build /app/dist ./static
 
 EXPOSE 8000

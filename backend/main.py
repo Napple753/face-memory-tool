@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 import excel_parser
+import face_detector
 
 app = FastAPI()
 
@@ -31,6 +32,18 @@ async def upload_excel(file: UploadFile):
         return excel_parser.parse_excel(content)
     except Exception:
         raise HTTPException(status_code=400, detail="Could not read this Excel file")
+
+
+@app.post("/api/detect-faces")
+async def detect_faces(file: UploadFile):
+    content = await file.read()
+    try:
+        boxes = face_detector.detect_faces(content)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Could not read this image")
+    return {"boxes": boxes}
 
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
