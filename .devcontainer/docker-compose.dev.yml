@@ -5,7 +5,11 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - .:/workspace:cached
+      - claude-code-home:/root
     ports:
       - "8000:8000"   # backend (uvicorn --reload)
       - "5173:5173"   # frontend (vite dev server)
     command: sleep infinity
+
+volumes:
+  claude-code-home:
