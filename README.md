@@ -78,11 +78,25 @@ Vue, ESLint, Prettier, Docker).
 1. Open this folder in VS Code.
 2. Install the "Dev Containers" extension if you don't have it.
 3. Command Palette -> "Dev Containers: Reopen in Container".
-4. Inside the container terminal:
+4. Start the servers, either from the terminal or with the debugger:
 
+   **Terminal (no breakpoints):**
    - Backend: `cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000`
    - Frontend: `cd frontend && npm run dev` (serves on :5173, proxies
      `/api` calls to the backend on :8000)
+
+   **Debugger (`.vscode/launch.json`, breakpoints work):**
+   - Start `cd frontend && npm run dev` in a terminal first (the debug
+     configs attach a browser to it, they don't start it).
+   - Run and Debug panel (or `F5`) -> pick a config:
+     - `Backend: FastAPI (uvicorn)` -- runs uvicorn under the Python debugger.
+     - `Frontend: Open in Chrome` / `Frontend: Open in Edge` -- opens a
+       debuggable browser at `localhost:5173` (launches on your host
+       machine automatically, even though VS Code is remoted into the
+       container).
+     - `Full Stack: Backend + Browser` -- both at once.
+5. Open `http://localhost:5173` in a browser to use the app (frontend
+   dev server; it proxies API calls to :8000).
 
 See `DEVELOPMENT_PLAN.md` for the phased build plan.
 
