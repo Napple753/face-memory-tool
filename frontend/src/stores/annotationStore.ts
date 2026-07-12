@@ -42,6 +42,17 @@ export const useAnnotationStore = defineStore('annotation', {
       state.members.filter(
         (member) => !state.boxes.some((box) => box.location === 'in-photo' && box.memberId === member.id),
       ),
+    // Names that appear on more than one member row after column mapping --
+    // surfaced as a warning since the UI otherwise assumes names are unique.
+    duplicateNames: (state): string[] => {
+      const counts = new Map<string, number>()
+      for (const member of state.members) {
+        const name = member.name.trim()
+        if (!name) continue
+        counts.set(name, (counts.get(name) ?? 0) + 1)
+      }
+      return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name)
+    },
   },
   actions: {
     setExcelData(columns: string[], rows: ExcelRow[], photoMatches: Record<string, string | null>) {

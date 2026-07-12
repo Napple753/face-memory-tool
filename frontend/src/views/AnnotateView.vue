@@ -14,9 +14,18 @@
           <p class="text-body-2 mb-2">
             Click a box to select it. Click and drag on the photo to draw a new box.
           </p>
+          <v-alert
+            v-if="!detecting && detectionRan && store.boxes.length === 0"
+            type="info"
+            density="compact"
+            class="mb-2"
+          >
+            No faces were automatically detected in this photo. Draw boxes manually by
+            clicking and dragging on the photo below.
+          </v-alert>
           <FaceBoxCanvas />
           <v-btn class="mt-4" :loading="detecting" @click="runDetection">
-            {{ store.boxes.length ? 'Re-run face detection' : 'Detect faces' }}
+            {{ detectionRan ? 'Re-run face detection' : 'Detect faces' }}
           </v-btn>
         </v-col>
 
@@ -54,6 +63,7 @@ import SuggestionList from '../components/SuggestionList.vue'
 const router = useRouter()
 const store = useAnnotationStore()
 const detecting = ref(false)
+const detectionRan = ref(false)
 const error = ref('')
 
 async function runDetection() {
@@ -63,6 +73,7 @@ async function runDetection() {
   try {
     const boxes = await detectFaces(store.groupPhotoDataUrl)
     store.setBoxesFromDetection(boxes)
+    detectionRan.value = true
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Face detection failed'
   } finally {

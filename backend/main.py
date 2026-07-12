@@ -120,9 +120,31 @@ if os.path.isdir(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
+def _check_port_free(port: int) -> None:
+    """Bind-and-release probe so a taken port fails with our own clear
+    message, rather than uvicorn's internal sys.exit() and log line."""
+    import socket
+    import sys
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        probe.bind(("0.0.0.0", port))
+    except OSError:
+        print(
+            f"\nPort {port} is already in use. Set APP_PORT to a free port and "
+            f"try again, e.g.:\n\n    APP_PORT=8001 docker compose up --build\n",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    finally:
+        probe.close()
+
+
 if __name__ == "__main__":
     import uvicorn
 
     port = int(os.environ.get("APP_PORT", 8000))
+    _check_port_free(port)
     print(f"Open this in your browser: http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

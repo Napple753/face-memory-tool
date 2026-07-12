@@ -37,6 +37,14 @@
       </v-btn>
 
       <template v-if="store.members.length">
+        <v-alert v-if="store.duplicateNames.length" type="warning" density="compact" class="mb-4">
+          Duplicate name{{ store.duplicateNames.length > 1 ? 's' : '' }} found:
+          {{ store.duplicateNames.join(', ') }}. They'll appear more than once, identically,
+          in the name-assignment list during annotation, so it's easy to pick the wrong one --
+          consider making these names unique in the spreadsheet (e.g. add a last initial) and
+          re-uploading.
+        </v-alert>
+
         <h2 class="text-h6 mt-6 mb-2">Photo match preview</h2>
         <p class="text-body-2 mb-4">
           Photos were auto-matched to rows by their position in the spreadsheet. Fix any
