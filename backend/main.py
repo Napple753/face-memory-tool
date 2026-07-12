@@ -16,11 +16,27 @@ import os
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 import excel_parser
 import face_detector
+import image_compositor
 
 app = FastAPI()
+
+
+class CompositeMember(BaseModel):
+    id: str
+    name: str
+    photoDataUrl: str | None = None
+
+
+class CompositeRequest(BaseModel):
+    groupPhotoDataUrl: str
+    missingMembers: list[CompositeMember]
+    rows: int | None = None
+    thumbWidth: int | None = None
+    thumbHeight: int | None = None
 
 
 @app.post("/api/upload/excel")
@@ -44,6 +60,22 @@ async def detect_faces(file: UploadFile):
     except ValueError:
         raise HTTPException(status_code=400, detail="Could not read this image")
     return {"boxes": boxes}
+
+
+@app.post("/api/composite")
+async def composite(req: CompositeRequest):
+    thumb_size = None
+    if req.thumbWidth and req.thumbHeight:
+        thumb_size = (req.thumbWidth, req.thumbHeight)
+    try:
+        return image_compositor.build_composite(
+            group_photo_data_url=req.groupPhotoDataUrl,
+            missing_members=[m.model_dump() for m in req.missingMembers],
+            rows=req.rows,
+            thumb_size=thumb_size,
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not build the composite image")
 
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")

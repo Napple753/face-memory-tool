@@ -1,7 +1,15 @@
 // Pinia store: single source of truth for members, boxes, and column mapping.
 
 import { defineStore } from 'pinia'
-import type { ColumnMapping, DetectedBox, ExcelRow, FaceBox, Member, ProgressExport } from '../types'
+import type {
+  ColumnMapping,
+  CompositeResult,
+  DetectedBox,
+  ExcelRow,
+  FaceBox,
+  Member,
+  ProgressExport,
+} from '../types'
 import { FORMAT_VERSION } from '../utils/progress-storage'
 
 export const useAnnotationStore = defineStore('annotation', {
@@ -16,12 +24,21 @@ export const useAnnotationStore = defineStore('annotation', {
     members: [] as Member[],
     boxes: [] as FaceBox[],
     selectedBoxId: null as string | null,
+    missingPhotoOverrides: {} as Record<string, string>, // memberId -> manually uploaded photo, for the bottom grid
   }),
   getters: {
     selectedBox: (state): FaceBox | null =>
       state.boxes.find((box) => box.id === state.selectedBoxId) ?? null,
+    // Not assigned to any box (in-photo or grid) -- used to prevent assigning
+    // the same member twice anywhere.
     unassignedMembers: (state): Member[] =>
       state.members.filter((member) => !state.boxes.some((box) => box.memberId === member.id)),
+    // Not found in the group photo specifically -- stays stable across
+    // re-generating the bottom grid, unlike unassignedMembers.
+    missingMembers: (state): Member[] =>
+      state.members.filter(
+        (member) => !state.boxes.some((box) => box.location === 'in-photo' && box.memberId === member.id),
+      ),
   },
   actions: {
     setExcelData(columns: string[], rows: ExcelRow[], photoMatches: Record<string, string | null>) {
@@ -94,6 +111,25 @@ export const useAnnotationStore = defineStore('annotation', {
         }
       })
     },
+    setMissingPhotoOverride(memberId: string, dataUrl: string | null) {
+      const copy = { ...this.missingPhotoOverrides }
+      if (dataUrl) copy[memberId] = dataUrl
+      else delete copy[memberId]
+      this.missingPhotoOverrides = copy
+    },
+    applyComposite(result: CompositeResult) {
+      const inPhotoBoxes = this.boxes.filter((box) => box.location === 'in-photo')
+      const gridBoxes: FaceBox[] = result.gridBoxes.map((box) => ({
+        id: crypto.randomUUID(),
+        memberId: box.memberId,
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        location: box.location,
+      }))
+      this.boxes = [...inPhotoBoxes, ...gridBoxes]
+    },
     exportState(): ProgressExport {
       return {
         formatVersion: FORMAT_VERSION,
@@ -101,6 +137,7 @@ export const useAnnotationStore = defineStore('annotation', {
         members: this.members,
         boxes: this.boxes,
         groupPhotoDataUrl: this.groupPhotoDataUrl,
+        missingPhotoOverrides: this.missingPhotoOverrides,
       }
     },
     // Restores members/boxes/photo directly, bypassing the Excel import and
@@ -116,6 +153,7 @@ export const useAnnotationStore = defineStore('annotation', {
       this.groupPhotoWidth = 0
       this.groupPhotoHeight = 0
       this.selectedBoxId = null
+      this.missingPhotoOverrides = data.missingPhotoOverrides ?? {}
     },
   },
 })

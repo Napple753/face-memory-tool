@@ -39,6 +39,7 @@ export interface ProgressExport {
   members: Member[]
   boxes: FaceBox[]
   groupPhotoDataUrl: string
+  missingPhotoOverrides: Record<string, string>
 }
 
 // Raw import data from the Excel upload step, before column mapping is applied.
@@ -51,4 +52,27 @@ export interface ExcelParseResult {
   columns: string[]
   rows: ExcelRow[]
   photoMatches: Record<string, string | null> // row id -> photo data URL
+}
+
+export interface GridBox {
+  memberId: string
+  x: number
+  y: number
+  w: number
+  h: number
+  location: 'bottom-grid' | 'placeholder'
+}
+
+export interface CompositeResult {
+  compositeImageDataUrl: string
+  imageWidth: number
+  imageHeight: number
+  rows: number
+  gridBoxes: GridBox[]
+}
+
+export interface CompositeMemberInput {
+  id: string
+  name: string
+  photoDataUrl?: string
 }
