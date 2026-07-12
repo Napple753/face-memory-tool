@@ -27,6 +27,34 @@
     >
       Continue
     </v-btn>
+
+    <v-divider class="my-6" />
+
+    <p class="text-body-2 mb-2">Already have a progress file from a previous session?</p>
+    <v-file-input
+      v-model="progressFile"
+      label="Import progress JSON (optional)"
+      accept="application/json"
+      prepend-icon="mdi-file-restore"
+      hide-details
+      @update:model-value="onProgressFileSelected"
+    />
+
+    <v-dialog v-model="showOverwriteWarning" max-width="480">
+      <v-card>
+        <v-card-title>Overwrite current progress?</v-card-title>
+        <v-card-text>
+          Importing this file will replace any progress currently in this browser (uploaded
+          Excel data, annotations, and boxes) and skip straight to annotation. This can't be
+          undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="cancelImport">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmImport">Import</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -34,7 +62,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { uploadExcel } from '../utils/api'
+import { parseProgressJson } from '../utils/progress-storage'
 import { useAnnotationStore } from '../stores/annotationStore'
+import type { ProgressExport } from '../types'
 
 const router = useRouter()
 const store = useAnnotationStore()
@@ -43,6 +73,35 @@ const excelFile = ref<File | null>(null)
 const groupPhotoFile = ref<File | null>(null)
 const loading = ref(false)
 const error = ref('')
+
+const progressFile = ref<File | null>(null)
+const showOverwriteWarning = ref(false)
+let pendingImport: ProgressExport | null = null
+
+async function onProgressFileSelected(file: File[] | File | null) {
+  const picked = Array.isArray(file) ? file[0] : file
+  if (!picked) return
+  try {
+    pendingImport = parseProgressJson(await picked.text())
+    showOverwriteWarning.value = true
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not read progress file'
+    progressFile.value = null
+  }
+}
+
+function cancelImport() {
+  showOverwriteWarning.value = false
+  pendingImport = null
+  progressFile.value = null
+}
+
+function confirmImport() {
+  if (!pendingImport) return
+  store.restoreState(pendingImport)
+  showOverwriteWarning.value = false
+  router.push('/annotate')
+}
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

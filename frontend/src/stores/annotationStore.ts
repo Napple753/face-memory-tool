@@ -1,7 +1,8 @@
 // Pinia store: single source of truth for members, boxes, and column mapping.
 
 import { defineStore } from 'pinia'
-import type { ColumnMapping, DetectedBox, ExcelRow, FaceBox, Member } from '../types'
+import type { ColumnMapping, DetectedBox, ExcelRow, FaceBox, Member, ProgressExport } from '../types'
+import { FORMAT_VERSION } from '../utils/progress-storage'
 
 export const useAnnotationStore = defineStore('annotation', {
   state: () => ({
@@ -92,6 +93,29 @@ export const useAnnotationStore = defineStore('annotation', {
           photoDataUrl: this.photoMatches[row.id] ?? undefined,
         }
       })
+    },
+    exportState(): ProgressExport {
+      return {
+        formatVersion: FORMAT_VERSION,
+        columnMapping: this.columnMapping,
+        members: this.members,
+        boxes: this.boxes,
+        groupPhotoDataUrl: this.groupPhotoDataUrl,
+      }
+    },
+    // Restores members/boxes/photo directly, bypassing the Excel import and
+    // column-mapping steps entirely -- raw import data isn't part of the export.
+    restoreState(data: ProgressExport) {
+      this.excelColumns = []
+      this.excelRows = []
+      this.photoMatches = {}
+      this.columnMapping = data.columnMapping
+      this.members = data.members
+      this.boxes = data.boxes
+      this.groupPhotoDataUrl = data.groupPhotoDataUrl
+      this.groupPhotoWidth = 0
+      this.groupPhotoHeight = 0
+      this.selectedBoxId = null
     },
   },
 })

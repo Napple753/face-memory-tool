@@ -35,9 +35,10 @@ export interface ColumnMapping {
 
 export interface ProgressExport {
   formatVersion: number // increment on every breaking change to this shape
-  columnMapping: ColumnMapping
+  columnMapping: ColumnMapping | null
   members: Member[]
   boxes: FaceBox[]
+  groupPhotoDataUrl: string
 }
 
 // Raw import data from the Excel upload step, before column mapping is applied.
