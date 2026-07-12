@@ -5,8 +5,5 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${APP_PORT:-8000}:8000"
-    volumes:
-      # optional: keeps temp/working files if the container restarts mid-session
-      - ./data:/app/data
     environment:
       - APP_PORT=${APP_PORT:-8000}

@@ -69,7 +69,8 @@ end.
 
 ## Phase 6 — Polish and edge cases
 - Port conflict handling (`APP_PORT` override, clear error/log message).
-- Duplicate-name detection during Excel import.
+- Duplicate-name detection during column mapping (once the name column is
+  chosen -- raw import rows don't know their own name column yet).
 - Empty/edge cases: zero missing members, zero photos, very small/large
   member counts.
 - README finalized with run instructions.
