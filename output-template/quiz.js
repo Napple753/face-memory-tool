@@ -119,14 +119,37 @@
     return array;
   }
 
+  // member.{x,y,w,h} is the detected head box, framed tight to hair/chin/ears,
+  // for members found in the group photo ('in-photo'). Pad that out to a
+  // standard portrait-style crop (headroom above, shoulders below) rather
+  // than revealing just the bare head. Members shown via the bottom grid
+  // ('bottom-grid'/'placeholder') are already their own full uploaded photo
+  // (or a placeholder) fitted to a cell, not a tight face crop -- padding
+  // those further would crop into neighboring grid cells, so show them as-is.
+  var PORTRAIT_TOP_MARGIN = 0.20;
+  var PORTRAIT_BOTTOM_MARGIN = 0.45;
+  var PORTRAIT_SIDE_MARGIN = 0.30;
+
+  function portraitCrop(member) {
+    if (member.location !== 'in-photo') {
+      return { x: member.x, y: member.y, w: member.w, h: member.h };
+    }
+    var top = Math.max(0, member.y - member.h * PORTRAIT_TOP_MARGIN);
+    var bottom = Math.min(IMAGE_HEIGHT, member.y + member.h + member.h * PORTRAIT_BOTTOM_MARGIN);
+    var left = Math.max(0, member.x - member.w * PORTRAIT_SIDE_MARGIN);
+    var right = Math.min(IMAGE_WIDTH, member.x + member.w + member.w * PORTRAIT_SIDE_MARGIN);
+    return { x: left, y: top, w: right - left, h: bottom - top };
+  }
+
   function showFaceCrop(member) {
+    var crop = portraitCrop(member);
     var containerW = faceCrop.clientWidth;
-    var scale = containerW / member.w;
-    faceCrop.style.height = (member.h * scale) + 'px';
+    var scale = containerW / crop.w;
+    faceCrop.style.height = (crop.h * scale) + 'px';
     faceImg.style.width = (IMAGE_WIDTH * scale) + 'px';
     faceImg.style.height = (IMAGE_HEIGHT * scale) + 'px';
-    faceImg.style.left = (-member.x * scale) + 'px';
-    faceImg.style.top = (-member.y * scale) + 'px';
+    faceImg.style.left = (-crop.x * scale) + 'px';
+    faceImg.style.top = (-crop.y * scale) + 'px';
   }
 
   function nextQuestion() {
