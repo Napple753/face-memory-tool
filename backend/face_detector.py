@@ -19,6 +19,13 @@ import numpy as np
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet.onnx")
 
+# YuNet's box is a tight face crop (eyebrows to chin, cheek to cheek). Expand
+# it to frame the whole head instead -- hair/forehead need the most room,
+# the jaw only a little, ears a moderate amount on each side.
+HEAD_TOP_MARGIN = 0.55
+HEAD_BOTTOM_MARGIN = 0.15
+HEAD_SIDE_MARGIN = 0.25
+
 
 def detect_faces(image_bytes: bytes, score_threshold: float = 0.6) -> list[dict]:
     if not os.path.isfile(MODEL_PATH):
@@ -42,13 +49,19 @@ def detect_faces(image_bytes: bytes, score_threshold: float = 0.6) -> list[dict]
     boxes = []
     if faces is not None:
         for face in faces:
-            x, y, w, h = face[:4]
-            boxes.append(
-                {
-                    "x": max(0, round(float(x))),
-                    "y": max(0, round(float(y))),
-                    "w": round(float(w)),
-                    "h": round(float(h)),
-                }
-            )
+            x, y, w, h = (float(v) for v in face[:4])
+            boxes.append(_expand_to_head(x, y, w, h, width, height))
     return boxes
+
+
+def _expand_to_head(x: float, y: float, w: float, h: float, image_width: int, image_height: int) -> dict:
+    top = max(0.0, y - h * HEAD_TOP_MARGIN)
+    left = max(0.0, x - w * HEAD_SIDE_MARGIN)
+    bottom = min(float(image_height), y + h + h * HEAD_BOTTOM_MARGIN)
+    right = min(float(image_width), x + w + w * HEAD_SIDE_MARGIN)
+    return {
+        "x": round(left),
+        "y": round(top),
+        "w": round(right - left),
+        "h": round(bottom - top),
+    }
