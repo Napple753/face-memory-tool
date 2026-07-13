@@ -37,8 +37,6 @@
 
           <NameAutocomplete class="mb-4" />
 
-          <SuggestionList class="mb-4" />
-
           <v-divider class="mb-4" />
 
           <BoxAdjustSliders />
@@ -58,7 +56,6 @@ import { detectFaces } from '../utils/api'
 import FaceBoxCanvas from '../components/FaceBoxCanvas.vue'
 import BoxAdjustSliders from '../components/BoxAdjustSliders.vue'
 import NameAutocomplete from '../components/NameAutocomplete.vue'
-import SuggestionList from '../components/SuggestionList.vue'
 
 const router = useRouter()
 const store = useAnnotationStore()

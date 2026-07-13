@@ -1,6 +1,7 @@
 <template>
   <v-autocomplete
     v-if="box"
+    ref="autocompleteRef"
     :model-value="box.memberId"
     :items="items"
     item-title="name"
@@ -14,11 +15,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useAnnotationStore } from '../stores/annotationStore'
 
 const store = useAnnotationStore()
 const box = computed(() => store.selectedBox)
+const autocompleteRef = ref<{ focus: () => void } | null>(null)
+
+// Selecting a box on the canvas jumps straight into typing a name, without
+// an extra click into the field -- worth it since this repeats 80+ times.
+watch(box, (newBox) => {
+  if (newBox) nextTick(() => autocompleteRef.value?.focus())
+})
 
 // Members already assigned to a different box are excluded, so the same
 // name can never be picked twice; the currently assigned member (if any)
