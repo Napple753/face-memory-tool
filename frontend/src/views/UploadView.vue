@@ -122,6 +122,7 @@ async function onContinue() {
       readAsDataUrl(groupPhotoFile.value),
     ])
     store.setExcelData(parsed.columns, parsed.rows, parsed.photoMatches)
+    store.setOriginalExcelFile(excelFile.value)
     store.setGroupPhoto(photoDataUrl)
     router.push('/mapping')
   } catch (e) {

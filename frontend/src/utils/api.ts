@@ -1,5 +1,5 @@
 // Typed wrapper around backend calls: uploadExcel, uploadPhoto,
-// detectFaces, composite, exportHtml.
+// detectFaces, composite, exportHtml, exportExcel.
 
 import type {
   CompositeMemberInput,
@@ -75,4 +75,46 @@ export async function exportHtml(payload: {
     throw new Error(body?.detail ?? `Export failed (${response.status})`)
   }
   return response.text()
+}
+
+export interface PhotoReplacement {
+  sheetName: string
+  rowIndex: number
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface ExcelExportResult {
+  blob: Blob
+  replacedCount: number
+  requestedCount: number
+}
+
+export async function exportExcel(
+  originalFile: File,
+  metadata: {
+    photoColumn?: string
+    groupPhotoDataUrl: string
+    groupPhotoWidth: number
+    groupPhotoHeight: number
+    replacements: PhotoReplacement[]
+  },
+): Promise<ExcelExportResult> {
+  const formData = new FormData()
+  formData.append('file', originalFile)
+  formData.append('metadata', JSON.stringify(metadata))
+  const response = await fetch('/api/export/excel', {
+    method: 'POST',
+    body: formData,
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail ?? `Excel export failed (${response.status})`)
+  }
+  const [replacedCount, requestedCount] = (response.headers.get('X-Photos-Replaced') ?? '0/0')
+    .split('/')
+    .map(Number)
+  return { blob: await response.blob(), replacedCount, requestedCount }
 }

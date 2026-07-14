@@ -17,6 +17,10 @@ export const useAnnotationStore = defineStore('annotation', {
     excelColumns: [] as string[],
     excelRows: [] as ExcelRow[],
     photoMatches: {} as Record<string, string | null>,
+    // The originally uploaded .xlsx, kept only so the export step can splice
+    // recognized members' photos into it without rebuilding the workbook.
+    // Not part of ProgressExport -- doesn't survive a save/restore round trip.
+    originalExcelFile: null as File | null,
     groupPhotoDataUrl: '' as string,
     groupPhotoWidth: 0,
     groupPhotoHeight: 0,
@@ -59,6 +63,9 @@ export const useAnnotationStore = defineStore('annotation', {
       this.excelColumns = columns
       this.excelRows = rows
       this.photoMatches = photoMatches
+    },
+    setOriginalExcelFile(file: File) {
+      this.originalExcelFile = file
     },
     setGroupPhoto(dataUrl: string) {
       this.groupPhotoDataUrl = dataUrl
@@ -166,6 +173,7 @@ export const useAnnotationStore = defineStore('annotation', {
       this.excelColumns = []
       this.excelRows = []
       this.photoMatches = {}
+      this.originalExcelFile = null
       this.columnMapping = data.columnMapping
       this.members = data.members
       this.boxes = data.boxes

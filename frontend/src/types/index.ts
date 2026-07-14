@@ -46,9 +46,14 @@ export interface ProgressExport {
 }
 
 // Raw import data from the Excel upload step, before column mapping is applied.
+// sheetName/sheetRowIndex identify this row's exact cell in the original
+// uploaded file, so the export step can splice a replacement photo in
+// without rebuilding the workbook -- see excel_parser.py's parse_excel().
 export interface ExcelRow {
   id: string
   cells: Record<string, string | number | null>
+  sheetName: string
+  sheetRowIndex: number
 }
 
 export interface ExcelParseResult {

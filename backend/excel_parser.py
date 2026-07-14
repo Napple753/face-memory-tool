@@ -60,23 +60,59 @@ _EXT_MIME = {
 
 
 def parse_excel(file_bytes: bytes) -> dict:
-    """Read the first sheet of an .xlsx file.
+    """Read the workbook's active sheet, plus any other sheet whose header
+    row is an exact match for it -- those are treated as more data for the
+    same import rather than a separate table, and their rows are merged in.
+    Sheets whose header doesn't match exactly are ignored.
 
     Returns:
         {
           "columns": ["Name", "Division", ...],
-          "rows": [{"id": "<uuid>", "cells": {"Name": "Alice", ...}}, ...],
+          "rows": [
+            {"id": "<uuid>", "cells": {"Name": "Alice", ...},
+             "sheetName": "Sheet1", "sheetRowIndex": 0},
+            ...
+          ],
           "photoMatches": {"<row id>": "data:image/png;base64,..." | None, ...},
         }
+
+    `sheetName`/`sheetRowIndex` (0-based, per-sheet) let a later export step
+    find this exact cell again in the original file -- e.g. to splice a
+    replacement photo in without rebuilding the workbook.
     """
     workbook = load_workbook(io.BytesIO(file_bytes), data_only=True)
-    sheet = workbook.active
+    active_sheet = workbook.active
+    columns = _sheet_header(active_sheet)
 
+    sheets = [active_sheet] + [
+        sheet
+        for sheet in workbook.worksheets
+        if sheet.title != active_sheet.title and _sheet_header(sheet) == columns
+    ]
+
+    rows: list[dict] = []
+    photo_matches: dict[str, str | None] = {}
+    for sheet in sheets:
+        sheet_rows = _read_sheet_rows(sheet, columns)
+        sheet_photo_matches = _match_images_to_rows(file_bytes, sheet.title, len(sheet_rows))
+        for i, row in enumerate(sheet_rows):
+            photo_matches[row["id"]] = sheet_photo_matches.get(i)
+        rows.extend(sheet_rows)
+
+    return {"columns": columns, "rows": rows, "photoMatches": photo_matches}
+
+
+def _sheet_header(sheet) -> list[str]:
+    header = next(sheet.iter_rows(values_only=True), None)
+    return [str(cell) if cell is not None else "" for cell in (header or [])]
+
+
+def _read_sheet_rows(sheet, columns: list[str]) -> list[dict]:
     rows_iter = sheet.iter_rows(values_only=True)
-    header = next(rows_iter, None)
-    columns = [str(cell) if cell is not None else "" for cell in (header or [])]
+    next(rows_iter, None)  # header, already read via _sheet_header
 
     rows = []
+    sheet_row_index = 0
     for values in rows_iter:
         if values is None or all(v is None for v in values):
             continue
@@ -84,16 +120,16 @@ def parse_excel(file_bytes: bytes) -> dict:
             columns[i]: values[i] if i < len(values) else None
             for i in range(len(columns))
         }
-        rows.append({"id": str(uuid.uuid4()), "cells": cells})
-
-    photo_matches = _match_images_to_rows(file_bytes, sheet.title, len(rows))
-    return {
-        "columns": columns,
-        "rows": rows,
-        "photoMatches": {
-            rows[i]["id"]: photo_matches.get(i) for i in range(len(rows))
-        },
-    }
+        rows.append(
+            {
+                "id": str(uuid.uuid4()),
+                "cells": cells,
+                "sheetName": sheet.title,
+                "sheetRowIndex": sheet_row_index,
+            }
+        )
+        sheet_row_index += 1
+    return rows
 
 
 def _match_images_to_rows(
@@ -144,6 +180,21 @@ def _rich_value_cell_images(
     zf: zipfile.ZipFile, sheet_root: ET.Element
 ) -> dict[tuple[int, int], str]:
     """"Place in Cell" pictures: the cell's own value is the image."""
+    images: dict[tuple[int, int], str] = {}
+    for rc, path in _rich_value_cell_image_paths(zf, sheet_root).items():
+        if path in zf.namelist():
+            images[rc] = _data_url(zf.read(path), path)
+    return images
+
+
+def _rich_value_cell_image_paths(
+    zf: zipfile.ZipFile, sheet_root: ET.Element
+) -> dict[tuple[int, int], str]:
+    """{(row, col) 0-based -> zip path of its "Place in Cell" image}, for
+    every cell on the sheet that has one. Exposed separately from
+    `_rich_value_cell_images` so a writer can splice in a replacement image
+    at the same zip path without needing to decode the original bytes.
+    """
     vm_cells = [
         (rc, int(c_el.get("vm")))
         for c_el in sheet_root.findall(".//main:c", _NS)
@@ -157,13 +208,13 @@ def _rich_value_cell_images(
     if not rv_paths:
         return {}
 
-    images: dict[tuple[int, int], str] = {}
+    paths: dict[tuple[int, int], str] = {}
     for rc, vm in vm_cells:
         rv_index = vm_to_rv.get(vm)
         path = rv_paths.get(rv_index) if rv_index is not None else None
-        if path and path in zf.namelist():
-            images[rc] = _data_url(zf.read(path), path)
-    return images
+        if path:
+            paths[rc] = path
+    return paths
 
 
 def _rich_value_index_by_vm(zf: zipfile.ZipFile) -> dict[int, int]:
@@ -248,6 +299,23 @@ def _floating_images(
     data row its vertical span overlaps the most, as a percentage of the
     image's own height. Returns (col, row_index, data-url) triples.
     """
+    records = _floating_image_records(zf, sheet_part, sheet_root, row_count)
+    results = []
+    for rec in records:
+        data = _crop_to_src_rect(zf.read(rec["media_path"]), rec["src_rect"])
+        results.append((rec["col"], rec["row_index"], _data_url(data, rec["media_path"])))
+    return results
+
+
+def _floating_image_records(
+    zf: zipfile.ZipFile, sheet_part: str, sheet_root: ET.Element, row_count: int
+) -> list[dict]:
+    """Like `_floating_images`, but exposes the raw anchor/media handles
+    instead of an encoded data URL, so a writer can locate the exact zip
+    path (to swap the image bytes) and XML element (to clear a stale crop
+    rect) to replace an image in place. Each record: {col, row_index,
+    media_path, src_rect, drawing_part, drawing_root, blip_fill_el}.
+    """
     drawing_el = sheet_root.find("main:drawing", _NS)
     if drawing_el is None:
         return []
@@ -290,24 +358,35 @@ def _floating_images(
                 ext_cy = int(ext_el.get("cy"))
 
         max_row_seen = max(max_row_seen, from_row, to_row or 0)
-        parsed.append((col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect))
+        parsed.append(
+            (col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect, blip_fill_el)
+        )
 
     if not parsed:
         return []
 
     row_tops = _row_tops_emu(sheet_root, max_row_seen + 2)
 
-    results = []
-    for col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect in parsed:
+    records = []
+    for col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect, blip_fill_el in parsed:
         img_top = row_tops[from_row] + from_off
         img_bottom = (
             row_tops[to_row] + to_off if to_row is not None else img_top + (ext_cy or 0)
         )
         row_index = _best_overlapping_row(img_top, img_bottom, row_tops, row_count)
         if row_index is not None:
-            data = _crop_to_src_rect(zf.read(path), src_rect)
-            results.append((col, row_index, _data_url(data, path)))
-    return results
+            records.append(
+                {
+                    "col": col,
+                    "row_index": row_index,
+                    "media_path": path,
+                    "src_rect": src_rect,
+                    "drawing_part": drawing_part,
+                    "drawing_root": drawing_root,
+                    "blip_fill_el": blip_fill_el,
+                }
+            )
+    return records
 
 
 def _parse_src_rect(src_rect_el: ET.Element | None) -> tuple[float, float, float, float] | None:
