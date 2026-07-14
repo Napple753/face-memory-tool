@@ -12,7 +12,9 @@
       <v-row>
         <v-col cols="12" md="8">
           <p class="text-body-2 mb-2">
-            Click a box to select it. Click and drag on the photo to draw a new box.
+            Click a box to select it, or drag it to reposition. Click and drag on empty
+            photo area to draw a new box. Press Tab / Shift+Tab to jump between faces, left
+            to right.
           </p>
           <v-alert
             v-if="!detecting && detectionRan && store.boxes.length === 0"
@@ -37,6 +39,8 @@
 
           <NameAutocomplete class="mb-4" />
 
+          <SelectedBoxPreview />
+
           <v-divider class="mb-4" />
 
           <BoxAdjustSliders />
@@ -49,13 +53,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnnotationStore } from '../stores/annotationStore'
 import { detectFaces } from '../utils/api'
 import FaceBoxCanvas from '../components/FaceBoxCanvas.vue'
 import BoxAdjustSliders from '../components/BoxAdjustSliders.vue'
 import NameAutocomplete from '../components/NameAutocomplete.vue'
+import SelectedBoxPreview from '../components/SelectedBoxPreview.vue'
 
 const router = useRouter()
 const store = useAnnotationStore()
@@ -78,9 +83,43 @@ async function runDetection() {
   }
 }
 
+// Left-to-right order, so Tab / Shift+Tab move through faces the same way
+// you'd scan the photo. Captured at document level (capture phase) so it
+// pre-empts both the browser's normal tab-order and Vuetify's own Tab
+// handling inside the name field, letting Tab drive face-to-face navigation
+// even while typing a name -- annotating 80+ people one by one.
+function orderedInPhotoBoxes() {
+  return store.boxes.filter((box) => box.location === 'in-photo').slice().sort((a, b) => a.x - b.x)
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+  event.preventDefault()
+  event.stopPropagation()
+
+  const ordered = orderedInPhotoBoxes()
+  if (!ordered.length) return
+
+  const currentIndex = ordered.findIndex((box) => box.id === store.selectedBoxId)
+  let nextIndex: number
+  if (currentIndex === -1) {
+    nextIndex = event.shiftKey ? ordered.length - 1 : 0
+  } else if (event.shiftKey) {
+    nextIndex = (currentIndex - 1 + ordered.length) % ordered.length
+  } else {
+    nextIndex = (currentIndex + 1) % ordered.length
+  }
+  store.selectBox(ordered[nextIndex].id)
+}
+
 onMounted(() => {
   if (store.groupPhotoDataUrl && store.boxes.length === 0) {
     runDetection()
   }
+  window.addEventListener('keydown', onKeydown, true)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown, true)
 })
 </script>

@@ -3,26 +3,7 @@
     <p class="text-caption mb-1">
       Box: ({{ box.x }}, {{ box.y }}) &mdash; {{ box.w }}&times;{{ box.h }}
     </p>
-    <v-slider
-      :model-value="box.x"
-      :max="store.groupPhotoWidth"
-      min="0"
-      step="1"
-      label="X"
-      thumb-label
-      density="compact"
-      @update:model-value="(v: number) => update({ x: Math.round(v) })"
-    />
-    <v-slider
-      :model-value="box.y"
-      :max="store.groupPhotoHeight"
-      min="0"
-      step="1"
-      label="Y"
-      thumb-label
-      density="compact"
-      @update:model-value="(v: number) => update({ y: Math.round(v) })"
-    />
+    <p class="text-caption mb-2">Drag the box on the photo to reposition it.</p>
     <v-slider
       :model-value="box.w"
       :max="store.groupPhotoWidth"
@@ -44,7 +25,7 @@
       @update:model-value="(v: number) => update({ h: Math.round(v) })"
     />
   </div>
-  <p v-else class="text-body-2">Select a box to adjust its position.</p>
+  <p v-else class="text-body-2">Select a box to adjust its size.</p>
 </template>
 
 <script setup lang="ts">

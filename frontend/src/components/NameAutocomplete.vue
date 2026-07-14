@@ -2,6 +2,7 @@
   <v-autocomplete
     v-if="box"
     ref="autocompleteRef"
+    :key="box.id"
     :model-value="box.memberId"
     :items="items"
     item-title="name"
@@ -22,11 +23,18 @@ const store = useAnnotationStore()
 const box = computed(() => store.selectedBox)
 const autocompleteRef = ref<{ focus: () => void } | null>(null)
 
-// Selecting a box on the canvas jumps straight into typing a name, without
-// an extra click into the field -- worth it since this repeats 80+ times.
-watch(box, (newBox) => {
-  if (newBox) nextTick(() => autocompleteRef.value?.focus())
-})
+// Selecting a box (by click, or Tab/Shift+Tab in AnnotateView) jumps
+// straight into typing a name, without an extra click into the field --
+// worth it since this repeats 80+ times. The field is keyed on box.id (see
+// template) so it fully remounts per box: its displayed text always derives
+// fresh from the new box's memberId, with no stale typed-but-unconfirmed
+// text leaking over from the previously selected box.
+watch(
+  () => box.value?.id,
+  (newId) => {
+    if (newId) nextTick(() => autocompleteRef.value?.focus())
+  },
+)
 
 // Members already assigned to a different box are excluded, so the same
 // name can never be picked twice; the currently assigned member (if any)

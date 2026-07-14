@@ -18,9 +18,14 @@
       v-for="box in store.boxes"
       :key="box.id"
       class="face-box"
-      :class="{ selected: box.id === store.selectedBoxId }"
+      :class="{
+        selected: box.id === store.selectedBoxId,
+        assigned: !!box.memberId,
+        unassigned: !box.memberId,
+        dragging: draggingBoxId === box.id,
+      }"
       :style="boxStyle(box)"
-      @mousedown.stop="onBoxMouseDown(box.id)"
+      @mousedown.stop.prevent="onBoxMouseDown(box.id, $event)"
     >
       <span class="face-box-label">{{ labelFor(box) }}</span>
       <button
@@ -39,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useAnnotationStore } from '../stores/annotationStore'
 import type { FaceBox } from '../types'
 
@@ -48,18 +53,41 @@ const store = useAnnotationStore()
 const wrapRef = ref<HTMLDivElement | null>(null)
 const imgRef = ref<HTMLImageElement | null>(null)
 const draftBox = ref<{ x: number; y: number; w: number; h: number } | null>(null)
+const draggingBoxId = ref<string | null>(null)
+
+// The image's rendered width, tracked reactively via ResizeObserver rather
+// than read imperatively from clientWidth -- a plain property read isn't a
+// reactive dependency, so on initial load (before layout settles) or after
+// a window/container resize, box positions would otherwise stay computed
+// against a stale width until some unrelated store change forced a re-render.
+const renderedWidth = ref(0)
+let resizeObserver: ResizeObserver | null = null
 
 let dragStart: { x: number; y: number } | null = null
+let dragBoxStart: { x: number; y: number } | null = null
+let dragPointerStart: { x: number; y: number } | null = null
 
 function onImageLoad() {
   if (imgRef.value) {
     store.setGroupPhotoDimensions(imgRef.value.naturalWidth, imgRef.value.naturalHeight)
+    renderedWidth.value = imgRef.value.clientWidth
   }
 }
 
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => {
+    if (imgRef.value) renderedWidth.value = imgRef.value.clientWidth
+  })
+  if (imgRef.value) resizeObserver.observe(imgRef.value)
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+})
+
 function scale(): number {
-  if (!imgRef.value || !imgRef.value.naturalWidth) return 1
-  return imgRef.value.clientWidth / imgRef.value.naturalWidth
+  if (!imgRef.value?.naturalWidth || !renderedWidth.value) return 1
+  return renderedWidth.value / imgRef.value.naturalWidth
 }
 
 function toImageCoords(clientX: number, clientY: number): { x: number; y: number } {
@@ -72,8 +100,13 @@ function toImageCoords(clientX: number, clientY: number): { x: number; y: number
   return { x, y }
 }
 
-function onBoxMouseDown(id: string) {
+function onBoxMouseDown(id: string, event: MouseEvent) {
   store.selectBox(id)
+  const box = store.boxes.find((b) => b.id === id)
+  if (!box) return
+  draggingBoxId.value = id
+  dragBoxStart = { x: box.x, y: box.y }
+  dragPointerStart = toImageCoords(event.clientX, event.clientY)
 }
 
 function onWrapMouseDown(event: MouseEvent) {
@@ -83,6 +116,17 @@ function onWrapMouseDown(event: MouseEvent) {
 }
 
 function onMouseMove(event: MouseEvent) {
+  if (draggingBoxId.value) {
+    const box = store.boxes.find((b) => b.id === draggingBoxId.value)
+    if (!box || !dragBoxStart || !dragPointerStart) return
+    const current = toImageCoords(event.clientX, event.clientY)
+    const maxX = Math.max(0, store.groupPhotoWidth - box.w)
+    const maxY = Math.max(0, store.groupPhotoHeight - box.h)
+    const x = Math.min(Math.max(dragBoxStart.x + (current.x - dragPointerStart.x), 0), maxX)
+    const y = Math.min(Math.max(dragBoxStart.y + (current.y - dragPointerStart.y), 0), maxY)
+    store.updateBoxPosition(box.id, { x: Math.round(x), y: Math.round(y), w: box.w, h: box.h })
+    return
+  }
   if (!dragStart) return
   const current = toImageCoords(event.clientX, event.clientY)
   draftBox.value = {
@@ -104,6 +148,9 @@ function onMouseUp() {
   }
   dragStart = null
   draftBox.value = null
+  draggingBoxId.value = null
+  dragBoxStart = null
+  dragPointerStart = null
 }
 
 function boxStyle(box: { x: number; y: number; w: number; h: number }) {
@@ -136,7 +183,16 @@ function labelFor(box: FaceBox): string {
   position: absolute;
   border: 2px solid #ff5252;
   box-sizing: border-box;
-  cursor: pointer;
+  cursor: grab;
+}
+.face-box.dragging {
+  cursor: grabbing;
+}
+.face-box.unassigned {
+  border-color: #ff5252;
+}
+.face-box.assigned {
+  border-color: #4caf50;
 }
 .face-box.selected {
   border-color: #2196f3;
@@ -147,6 +203,7 @@ function labelFor(box: FaceBox): string {
   border-color: #2196f3;
 }
 .face-box-label {
+  display: none;
   position: absolute;
   top: -22px;
   left: -2px;
@@ -155,6 +212,10 @@ function labelFor(box: FaceBox): string {
   font-size: 12px;
   padding: 1px 4px;
   white-space: nowrap;
+}
+.face-box.assigned:hover .face-box-label,
+.face-box.assigned.selected .face-box-label {
+  display: block;
 }
 .face-box-delete {
   position: absolute;
