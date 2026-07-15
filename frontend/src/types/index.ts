@@ -29,8 +29,8 @@ export interface ColumnMapping {
   nameColumn: string
   divisionColumn: string
   photoColumn?: string
-  answerColumns: string[]
-  answerSeparator: string
+  // e.g. "{{name}}¥n{{nickname}}" -- {{column}} pulls a cell's value, ¥n is a line break.
+  answerTemplate: string
 }
 
 export interface ProgressExport {

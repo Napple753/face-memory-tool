@@ -11,6 +11,7 @@ import type {
   ProgressExport,
 } from '../types'
 import { FORMAT_VERSION } from '../utils/progress-storage'
+import { renderAnswerTemplate } from '../utils/answer-template'
 
 export const useAnnotationStore = defineStore('annotation', {
   state: () => ({
@@ -159,10 +160,7 @@ export const useAnnotationStore = defineStore('annotation', {
     applyColumnMapping(mapping: ColumnMapping) {
       this.columnMapping = mapping
       this.members = this.excelRows.map((row) => {
-        const answerText = mapping.answerColumns
-          .map((col) => row.cells[col])
-          .filter((value) => value !== null && value !== undefined && value !== '')
-          .join(mapping.answerSeparator)
+        const answerText = renderAnswerTemplate(mapping.answerTemplate, row.cells)
         return {
           id: row.id,
           name: String(row.cells[mapping.nameColumn] ?? ''),

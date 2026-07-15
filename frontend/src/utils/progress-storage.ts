@@ -4,7 +4,7 @@
 
 import type { ProgressExport } from '../types'
 
-export const FORMAT_VERSION = 2
+export const FORMAT_VERSION = 3
 
 export async function saveProgress(data: ProgressExport): Promise<boolean> {
   try {

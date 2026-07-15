@@ -16,21 +16,15 @@
         clearable
         class="mb-2"
       />
-      <v-select
-        v-model="answerColumns"
-        :items="store.excelColumns"
-        label="Answer text columns"
-        multiple
-        chips
+      <v-textarea
+        v-model="answerTemplate"
+        label="Answer text template"
+        rows="3"
+        hint="Use {{column_name}} to insert a column's value, and ¥n for a line break."
+        persistent-hint
         class="mb-2"
       />
-      <v-checkbox v-model="useLineBreak" label="Join answer columns with a line break" class="mb-0" />
-      <v-text-field
-        v-if="!useLineBreak"
-        v-model="separator"
-        label="Answer column separator"
-        class="mb-2"
-      />
+      <p class="text-caption mb-4">Available columns: {{ availableColumnHint }}</p>
 
       <v-btn color="primary" :disabled="!nameColumn || !divisionColumn" @click="buildMembers">
         Build member list
@@ -92,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnnotationStore } from '../stores/annotationStore'
 
@@ -102,17 +96,17 @@ const store = useAnnotationStore()
 const nameColumn = ref(store.columnMapping?.nameColumn ?? store.excelColumns[0] ?? '')
 const divisionColumn = ref(store.columnMapping?.divisionColumn ?? store.excelColumns[1] ?? '')
 const photoColumn = ref<string | null>(store.columnMapping?.photoColumn ?? null)
-const answerColumns = ref<string[]>(store.columnMapping?.answerColumns ?? [])
-const separator = ref(store.columnMapping?.answerSeparator ?? ', ')
-const useLineBreak = ref(store.columnMapping?.answerSeparator === '\n')
+const answerTemplate = ref(store.columnMapping?.answerTemplate ?? `{{${nameColumn.value}}}`)
+const availableColumnHint = computed(() =>
+  store.excelColumns.map((c) => `{{${c}}}`).join(', '),
+)
 
 function buildMembers() {
   store.applyColumnMapping({
     nameColumn: nameColumn.value,
     divisionColumn: divisionColumn.value,
     photoColumn: photoColumn.value ?? undefined,
-    answerColumns: answerColumns.value,
-    answerSeparator: useLineBreak.value ? '\n' : separator.value,
+    answerTemplate: answerTemplate.value,
   })
 }
 

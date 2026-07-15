@@ -5,7 +5,7 @@
     :key="box.id"
     :model-value="box.memberId"
     :items="items"
-    item-title="name"
+    item-title="answerText"
     item-value="id"
     label="Assign name"
     clearable
