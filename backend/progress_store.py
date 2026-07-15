@@ -12,6 +12,15 @@ from typing import Any
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 PROGRESS_PATH = os.path.join(DATA_DIR, "progress.json")
+ORIGINAL_EXCEL_PATH = os.path.join(DATA_DIR, "original.xlsx")
+
+
+def _atomic_write(path: str, content: bytes) -> None:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "wb") as f:
+        f.write(content)
+    os.replace(tmp_path, path)  # atomic on the same filesystem
 
 
 def load_progress() -> dict[str, Any] | None:
@@ -22,13 +31,25 @@ def load_progress() -> dict[str, Any] | None:
 
 
 def save_progress(data: dict[str, Any]) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    tmp_path = PROGRESS_PATH + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f)
-    os.replace(tmp_path, PROGRESS_PATH)  # atomic on the same filesystem
+    _atomic_write(PROGRESS_PATH, json.dumps(data).encode("utf-8"))
 
 
 def delete_progress() -> None:
     if os.path.isfile(PROGRESS_PATH):
         os.remove(PROGRESS_PATH)
+
+
+def load_original_excel() -> bytes | None:
+    if not os.path.isfile(ORIGINAL_EXCEL_PATH):
+        return None
+    with open(ORIGINAL_EXCEL_PATH, "rb") as f:
+        return f.read()
+
+
+def save_original_excel(content: bytes) -> None:
+    _atomic_write(ORIGINAL_EXCEL_PATH, content)
+
+
+def delete_original_excel() -> None:
+    if os.path.isfile(ORIGINAL_EXCEL_PATH):
+        os.remove(ORIGINAL_EXCEL_PATH)

@@ -19,7 +19,8 @@ export const useAnnotationStore = defineStore('annotation', {
     photoMatches: {} as Record<string, string | null>,
     // The originally uploaded .xlsx, kept only so the export step can splice
     // recognized members' photos into it without rebuilding the workbook.
-    // Not part of ProgressExport -- doesn't survive a save/restore round trip.
+    // Not part of ProgressExport (a File can't be JSON-serialized) -- the
+    // backend keeps its own copy instead, restored via App.vue on mount.
     originalExcelFile: null as File | null,
     groupPhotoDataUrl: '' as string,
     groupPhotoWidth: 0,
@@ -95,9 +96,29 @@ export const useAnnotationStore = defineStore('annotation', {
       this.boxes.push(newBox)
       this.selectedBoxId = newBox.id
     },
+    // On deleting the selected box, moves selection to the next face to the
+    // right (by x position among in-photo boxes), or the previous one if the
+    // deleted box was rightmost -- keeps annotating in a left-to-right sweep
+    // without a re-click after every delete.
     removeBox(id: string) {
+      const wasSelected = this.selectedBoxId === id
+      const removedBox = this.boxes.find((box) => box.id === id)
+      let nextSelection: string | null = null
+
+      if (wasSelected && removedBox?.location === 'in-photo') {
+        const ordered = this.boxes
+          .filter((box) => box.location === 'in-photo')
+          .slice()
+          .sort((a, b) => a.x - b.x)
+        const currentIndex = ordered.findIndex((box) => box.id === id)
+        const remaining = ordered.filter((box) => box.id !== id)
+        if (remaining.length) {
+          nextSelection = (remaining[currentIndex] ?? remaining[remaining.length - 1]).id
+        }
+      }
+
       this.boxes = this.boxes.filter((box) => box.id !== id)
-      if (this.selectedBoxId === id) this.selectedBoxId = null
+      if (wasSelected) this.selectedBoxId = nextSelection
     },
     updateBoxPosition(id: string, pos: DetectedBox) {
       const box = this.boxes.find((b) => b.id === id)
@@ -165,13 +186,16 @@ export const useAnnotationStore = defineStore('annotation', {
         finalCompositeImageDataUrl: this.finalCompositeImageDataUrl,
         finalCompositeWidth: this.finalCompositeWidth,
         finalCompositeHeight: this.finalCompositeHeight,
+        excelColumns: this.excelColumns,
+        excelRows: this.excelRows,
       }
     },
-    // Restores members/boxes/photo directly, bypassing the Excel import and
-    // column-mapping steps entirely -- raw import data isn't part of the export.
+    // Restores members/boxes/photo directly, bypassing the column-mapping
+    // step -- the original excel FILE itself isn't part of the export (it's
+    // fetched separately from server-side storage; see App.vue).
     restoreState(data: ProgressExport) {
-      this.excelColumns = []
-      this.excelRows = []
+      this.excelColumns = data.excelColumns ?? []
+      this.excelRows = data.excelRows ?? []
       this.photoMatches = {}
       this.originalExcelFile = null
       this.columnMapping = data.columnMapping

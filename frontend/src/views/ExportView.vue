@@ -31,8 +31,8 @@
           Download Excel (photos updated)
         </v-btn>
         <v-alert v-else-if="!hasOriginalExcel" type="info" density="compact">
-          Excel download needs the originally uploaded Excel data, which isn't available after
-          restoring saved progress. Re-upload the Excel file to use this option.
+          Excel download needs the originally uploaded Excel file, which isn't available yet.
+          Upload it from the start to use this option.
         </v-alert>
         <v-alert v-else-if="!hasPhotoColumn" type="info" density="compact">
           Excel download needs a photo column -- go back to column mapping and set "Photo column"

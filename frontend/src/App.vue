@@ -41,6 +41,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnnotationStore } from './stores/annotationStore'
 import { clearProgress, downloadProgressJson, loadProgress, saveProgress } from './utils/progress-storage'
+import { fetchOriginalExcel } from './utils/api'
 
 const router = useRouter()
 const store = useAnnotationStore()
@@ -67,6 +68,8 @@ onMounted(async () => {
     if (saved.groupPhotoDataUrl && router.currentRoute.value.path === '/') {
       router.replace('/annotate')
     }
+    const originalExcel = await fetchOriginalExcel()
+    if (originalExcel) store.setOriginalExcelFile(originalExcel)
   }
 
   store.$subscribe(scheduleSave)

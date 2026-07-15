@@ -9,6 +9,17 @@ import type {
   ExportMemberInput,
 } from '../types'
 
+// Fetches the Excel file saved server-side by the last uploadExcel() call, so
+// the Excel export step keeps working after a reload/restart without
+// re-uploading. Returns null if nothing has been saved (fresh install, or it
+// was cleared by a reset).
+export async function fetchOriginalExcel(): Promise<File | null> {
+  const response = await fetch('/api/original-excel')
+  if (!response.ok) return null
+  const blob = await response.blob()
+  return new File([blob], 'original.xlsx', { type: blob.type })
+}
+
 export async function uploadExcel(file: File): Promise<ExcelParseResult> {
   const formData = new FormData()
   formData.append('file', file)

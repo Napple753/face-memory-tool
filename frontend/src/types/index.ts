@@ -43,6 +43,12 @@ export interface ProgressExport {
   finalCompositeImageDataUrl: string
   finalCompositeWidth: number
   finalCompositeHeight: number
+  // Needed to re-locate each member's cell in the original workbook for the
+  // Excel export step -- member/box ids are ExcelRow ids, so this must be
+  // restored verbatim rather than re-derived from a fresh parse (which would
+  // mint new row ids and break that link).
+  excelColumns: string[]
+  excelRows: ExcelRow[]
 }
 
 // Raw import data from the Excel upload step, before column mapping is applied.

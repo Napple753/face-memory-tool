@@ -87,9 +87,13 @@ async def upload_excel(file: UploadFile):
         raise HTTPException(status_code=400, detail="Please upload a .xlsx file")
     content = await file.read()
     try:
-        return excel_parser.parse_excel(content)
+        result = excel_parser.parse_excel(content)
     except Exception:
         raise HTTPException(status_code=400, detail="Could not read this Excel file")
+    # Kept on disk so "download Excel with photos" still works after a
+    # browser reload or container restart, without re-uploading.
+    progress_store.save_original_excel(content)
+    return result
 
 
 @app.post("/api/detect-faces")
@@ -190,7 +194,20 @@ async def put_progress(request: Request):
 @app.delete("/api/progress")
 async def delete_progress():
     progress_store.delete_progress()
+    progress_store.delete_original_excel()
     return {"ok": True}
+
+
+@app.get("/api/original-excel")
+async def get_original_excel():
+    content = progress_store.load_original_excel()
+    if content is None:
+        raise HTTPException(status_code=404, detail="No original Excel file saved")
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=original.xlsx"},
+    )
 
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
