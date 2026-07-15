@@ -15,7 +15,7 @@ Responsibilities (to implement):
 
 import os
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -25,6 +25,7 @@ import excel_photo_replacer
 import face_detector
 import html_generator
 import image_compositor
+import progress_store
 
 app = FastAPI()
 
@@ -172,6 +173,24 @@ async def export_excel(file: UploadFile, metadata: str = Form(...)):
             "Access-Control-Expose-Headers": "X-Photos-Replaced",
         },
     )
+
+
+@app.get("/api/progress")
+async def get_progress():
+    return progress_store.load_progress()
+
+
+@app.put("/api/progress")
+async def put_progress(request: Request):
+    data = await request.json()
+    progress_store.save_progress(data)
+    return {"ok": True}
+
+
+@app.delete("/api/progress")
+async def delete_progress():
+    progress_store.delete_progress()
+    return {"ok": True}
 
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")

@@ -26,6 +26,9 @@ yarn-error.log*
 backend/models/*
 !backend/models/README.md
 
+# Persisted in-progress session data (docker volume mount target)
+/data/
+
 # OS / editor
 .DS_Store
 .vscode/
