@@ -14,7 +14,7 @@
           <p class="text-body-2 mb-2">
             Click a box to select it, or drag it to reposition. Click and drag on empty
             photo area to draw a new box. Press Tab / Shift+Tab to jump between faces, left
-            to right.
+            to right, and Delete / Backspace to remove the selected face.
           </p>
           <v-alert
             v-if="!detecting && detectionRan && store.boxes.length === 0"
@@ -92,24 +92,40 @@ function orderedInPhotoBoxes() {
   return store.boxes.filter((box) => box.location === 'in-photo').slice().sort((a, b) => a.x - b.x)
 }
 
+// True while the event target is a text field (the name autocomplete, most
+// commonly) -- Backspace/Delete there must edit the typed text, not delete
+// the selected face.
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+}
+
 function onKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Tab') return
-  event.preventDefault()
-  event.stopPropagation()
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    event.stopPropagation()
 
-  const ordered = orderedInPhotoBoxes()
-  if (!ordered.length) return
+    const ordered = orderedInPhotoBoxes()
+    if (!ordered.length) return
 
-  const currentIndex = ordered.findIndex((box) => box.id === store.selectedBoxId)
-  let nextIndex: number
-  if (currentIndex === -1) {
-    nextIndex = event.shiftKey ? ordered.length - 1 : 0
-  } else if (event.shiftKey) {
-    nextIndex = (currentIndex - 1 + ordered.length) % ordered.length
-  } else {
-    nextIndex = (currentIndex + 1) % ordered.length
+    const currentIndex = ordered.findIndex((box) => box.id === store.selectedBoxId)
+    let nextIndex: number
+    if (currentIndex === -1) {
+      nextIndex = event.shiftKey ? ordered.length - 1 : 0
+    } else if (event.shiftKey) {
+      nextIndex = (currentIndex - 1 + ordered.length) % ordered.length
+    } else {
+      nextIndex = (currentIndex + 1) % ordered.length
+    }
+    store.selectBox(ordered[nextIndex].id)
+    return
   }
-  store.selectBox(ordered[nextIndex].id)
+
+  if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedBoxId) {
+    if (isEditableTarget(event.target)) return
+    event.preventDefault()
+    store.removeBox(store.selectedBoxId)
+  }
 }
 
 onMounted(() => {
