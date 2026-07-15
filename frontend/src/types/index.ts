@@ -66,6 +66,8 @@ export interface ExcelParseResult {
   columns: string[]
   rows: ExcelRow[]
   photoMatches: Record<string, string | null> // row id -> photo data URL
+  usedSheets: string[] // sheets whose header matched the active sheet's, merged into rows
+  unusedSheets: string[] // sheets skipped because their header didn't match
 }
 
 export interface GridBox {

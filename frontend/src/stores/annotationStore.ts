@@ -17,6 +17,8 @@ export const useAnnotationStore = defineStore('annotation', {
     excelColumns: [] as string[],
     excelRows: [] as ExcelRow[],
     photoMatches: {} as Record<string, string | null>,
+    usedSheets: [] as string[],
+    unusedSheets: [] as string[],
     // The originally uploaded .xlsx, kept only so the export step can splice
     // recognized members' photos into it without rebuilding the workbook.
     // Not part of ProgressExport (a File can't be JSON-serialized) -- the
@@ -47,23 +49,40 @@ export const useAnnotationStore = defineStore('annotation', {
       state.members.filter(
         (member) => !state.boxes.some((box) => box.location === 'in-photo' && box.memberId === member.id),
       ),
-    // Names that appear on more than one member row after column mapping --
-    // surfaced as a warning since the UI otherwise assumes names are unique.
+    // Names of members that share BOTH name and answer text with another
+    // member -- a name collision alone is fine (common names happen; the
+    // answer text still tells them apart), but an identical name+answer pair
+    // usually means an accidental duplicate spreadsheet row.
     duplicateNames: (state): string[] => {
-      const counts = new Map<string, number>()
+      const seenAnswersByName = new Map<string, Map<string, number>>()
       for (const member of state.members) {
         const name = member.name.trim()
-        if (!name) continue
-        counts.set(name, (counts.get(name) ?? 0) + 1)
+        const answer = member.answerText.trim()
+        if (!name || !answer) continue
+        const answerCounts = seenAnswersByName.get(name) ?? new Map<string, number>()
+        answerCounts.set(answer, (answerCounts.get(answer) ?? 0) + 1)
+        seenAnswersByName.set(name, answerCounts)
       }
-      return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name)
+      const names = new Set<string>()
+      for (const [name, answerCounts] of seenAnswersByName) {
+        if ([...answerCounts.values()].some((count) => count > 1)) names.add(name)
+      }
+      return [...names]
     },
   },
   actions: {
-    setExcelData(columns: string[], rows: ExcelRow[], photoMatches: Record<string, string | null>) {
+    setExcelData(
+      columns: string[],
+      rows: ExcelRow[],
+      photoMatches: Record<string, string | null>,
+      usedSheets: string[],
+      unusedSheets: string[],
+    ) {
       this.excelColumns = columns
       this.excelRows = rows
       this.photoMatches = photoMatches
+      this.usedSheets = usedSheets
+      this.unusedSheets = unusedSheets
     },
     setOriginalExcelFile(file: File) {
       this.originalExcelFile = file
@@ -197,6 +216,8 @@ export const useAnnotationStore = defineStore('annotation', {
       this.excelColumns = data.excelColumns ?? []
       this.excelRows = data.excelRows ?? []
       this.photoMatches = {}
+      this.usedSheets = []
+      this.unusedSheets = []
       this.originalExcelFile = null
       this.columnMapping = data.columnMapping
       this.members = data.members

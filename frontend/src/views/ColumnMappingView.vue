@@ -37,12 +37,24 @@
       </v-btn>
 
       <template v-if="store.members.length">
+        <v-alert type="info" density="compact" class="mb-4">
+          <div>{{ store.members.length }} member{{ store.members.length > 1 ? 's' : '' }} loaded.</div>
+          <div v-if="store.usedSheets.length">
+            Sheet{{ store.usedSheets.length > 1 ? 's' : '' }} used:
+            {{ store.usedSheets.join(', ') }}.
+          </div>
+          <div v-if="store.unusedSheets.length">
+            Sheet{{ store.unusedSheets.length > 1 ? 's' : '' }} not used (header didn't match):
+            {{ store.unusedSheets.join(', ') }}.
+          </div>
+        </v-alert>
+
         <v-alert v-if="store.duplicateNames.length" type="warning" density="compact" class="mb-4">
-          Duplicate name{{ store.duplicateNames.length > 1 ? 's' : '' }} found:
-          {{ store.duplicateNames.join(', ') }}. They'll appear more than once, identically,
-          in the name-assignment list during annotation, so it's easy to pick the wrong one --
-          consider making these names unique in the spreadsheet (e.g. add a last initial) and
-          re-uploading.
+          Duplicate member{{ store.duplicateNames.length > 1 ? 's' : '' }} found (same name AND
+          same answer): {{ store.duplicateNames.join(', ') }}. They'll appear more than once,
+          identically, in the name-assignment list during annotation, so it's easy to pick the
+          wrong one -- consider fixing these rows in the spreadsheet and re-uploading. Rows that
+          merely share a name but have different answers are fine and were left alone.
         </v-alert>
 
         <h2 class="text-h6 mt-6 mb-2">Photo match preview</h2>

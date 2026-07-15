@@ -74,6 +74,8 @@ def parse_excel(file_bytes: bytes) -> dict:
             ...
           ],
           "photoMatches": {"<row id>": "data:image/png;base64,..." | None, ...},
+          "usedSheets": ["Sheet1", "Sheet2"],
+          "unusedSheets": ["Notes"],
         }
 
     `sheetName`/`sheetRowIndex` (0-based, per-sheet) let a later export step
@@ -99,7 +101,18 @@ def parse_excel(file_bytes: bytes) -> dict:
             photo_matches[row["id"]] = sheet_photo_matches.get(i)
         rows.extend(sheet_rows)
 
-    return {"columns": columns, "rows": rows, "photoMatches": photo_matches}
+    used_titles = [sheet.title for sheet in sheets]
+    unused_titles = [
+        sheet.title for sheet in workbook.worksheets if sheet.title not in used_titles
+    ]
+
+    return {
+        "columns": columns,
+        "rows": rows,
+        "photoMatches": photo_matches,
+        "usedSheets": used_titles,
+        "unusedSheets": unused_titles,
+    }
 
 
 def _sheet_header(sheet) -> list[str]:
