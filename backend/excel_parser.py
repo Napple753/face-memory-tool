@@ -116,8 +116,16 @@ def parse_excel(file_bytes: bytes) -> dict:
 
 
 def _sheet_header(sheet) -> list[str]:
+    # iter_rows() spans the sheet's whole used range, which can extend past
+    # the real header if a far cell merely has formatting (a fill, a border,
+    # a column width) with no value -- that inflates max_column and pads the
+    # header with trailing "" for every sheet, which then fail to match each
+    # other by exact equality even though their real headers are identical.
     header = next(sheet.iter_rows(values_only=True), None)
-    return [str(cell) if cell is not None else "" for cell in (header or [])]
+    cells = [str(cell) if cell is not None else "" for cell in (header or [])]
+    while cells and cells[-1] == "":
+        cells.pop()
+    return cells
 
 
 def _read_sheet_rows(sheet, columns: list[str]) -> list[dict]:
