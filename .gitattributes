@@ -1,0 +1,40 @@
+# Auto detect text files and normalize line endings to LF in the repo
+* text=auto eol=lf
+
+# Explicitly declare text files to always be normalized
+*.py text
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.json text
+*.md text
+*.html text
+*.css text
+*.scss text
+*.yml text
+*.yaml text
+*.txt text
+*.sql text
+
+# Shell scripts must always use LF, even on Windows checkouts
+*.sh text eol=lf
+
+# Windows scripts must always use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files should never be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
