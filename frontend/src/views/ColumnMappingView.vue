@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnnotationStore } from '../stores/annotationStore'
 
@@ -99,6 +99,27 @@ const photoColumn = ref<string | null>(store.columnMapping?.photoColumn ?? null)
 const answerTemplate = ref(store.columnMapping?.answerTemplate ?? `{{${nameColumn.value}}}`)
 const availableColumnHint = computed(() =>
   store.excelColumns.map((c) => `{{${c}}}`).join(', '),
+)
+
+// On a page reload, App.vue restores the store asynchronously (fetching
+// saved progress from the server) *after* this view has already mounted --
+// with hash-based routing, a reload lands straight back on /mapping, so the
+// refs above get initialized from an still-empty store.excelColumns before
+// restoreState() runs. Re-sync once the columns actually show up, so the
+// selects don't stay stuck empty; stop after the first population so it
+// doesn't clobber the user's own choices afterward.
+let columnsSynced = false
+watch(
+  () => store.excelColumns,
+  (columns) => {
+    if (columnsSynced || !columns.length) return
+    columnsSynced = true
+    nameColumn.value = store.columnMapping?.nameColumn ?? columns[0] ?? ''
+    divisionColumn.value = store.columnMapping?.divisionColumn ?? columns[1] ?? ''
+    photoColumn.value = store.columnMapping?.photoColumn ?? null
+    answerTemplate.value = store.columnMapping?.answerTemplate ?? `{{${nameColumn.value}}}`
+  },
+  { immediate: true },
 )
 
 function buildMembers() {
