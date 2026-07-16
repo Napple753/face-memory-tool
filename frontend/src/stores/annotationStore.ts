@@ -104,6 +104,7 @@ export const useAnnotationStore = defineStore('annotation', {
         id: crypto.randomUUID(),
         memberId: null,
         location: 'in-photo',
+        photoSource: 'cropped',
         ...box,
       }))
       this.selectedBoxId = null
@@ -112,9 +113,19 @@ export const useAnnotationStore = defineStore('annotation', {
       this.selectedBoxId = id
     },
     addBox(box: DetectedBox) {
-      const newBox: FaceBox = { id: crypto.randomUUID(), memberId: null, location: 'in-photo', ...box }
+      const newBox: FaceBox = {
+        id: crypto.randomUUID(),
+        memberId: null,
+        location: 'in-photo',
+        photoSource: 'cropped',
+        ...box,
+      }
       this.boxes.push(newBox)
       this.selectedBoxId = newBox.id
+    },
+    setBoxPhotoSource(boxId: string, source: 'cropped' | 'excel') {
+      const box = this.boxes.find((b) => b.id === boxId)
+      if (box) box.photoSource = source
     },
     // On deleting the selected box, moves selection to the next face to the
     // right (by x position among in-photo boxes), or the previous one if the

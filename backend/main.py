@@ -54,6 +54,8 @@ class ExportMember(BaseModel):
     w: int
     h: int
     location: str
+    useExcelPhoto: bool = False
+    photoDataUrl: str | None = None
 
 
 class ExportRequest(BaseModel):

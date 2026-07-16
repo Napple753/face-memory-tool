@@ -141,7 +141,23 @@
     return { x: left, y: top, w: right - left, h: bottom - top };
   }
 
+  // Members whose photoSource was set to "excel" during annotation carry
+  // their own photoDataUrl instead: the shared composite image still shows
+  // whatever was actually in the group photo at their box, so cropping into
+  // it would show the wrong (or a to-be-avoided) picture. Shown as a plain
+  // fitted image rather than a cropped window into the composite.
   function showFaceCrop(member) {
+    if (member.useExcelPhoto && member.photoDataUrl) {
+      faceImg.src = member.photoDataUrl;
+      faceImg.style.position = 'static';
+      faceImg.style.width = '100%';
+      faceImg.style.height = 'auto';
+      faceCrop.style.height = 'auto';
+      return;
+    }
+
+    faceImg.src = compositeImageSrc;
+    faceImg.style.position = 'absolute';
     var crop = portraitCrop(member);
     var containerW = faceCrop.clientWidth;
     var scale = containerW / crop.w;
@@ -208,7 +224,8 @@
   });
 
   // ---------- init ----------
-  faceImg.src = document.getElementById('composite-image').src;
+  var compositeImageSrc = document.getElementById('composite-image').src;
+  faceImg.src = compositeImageSrc;
   buildRegions();
   switchTab('browse');
 })();

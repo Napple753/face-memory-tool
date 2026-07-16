@@ -16,6 +16,11 @@ export interface FaceBox {
   w: number
   h: number
   location: 'in-photo' | 'bottom-grid' | 'placeholder'
+  // Which photo represents this member in exports: a crop of the group
+  // photo at this box (default), or their Excel-sourced photo untouched.
+  // Only meaningful for 'in-photo' boxes -- grid/placeholder members are
+  // already their Excel photo, with no crop alternative to choose from.
+  photoSource?: 'cropped' | 'excel'
 }
 
 export interface DetectedBox {
@@ -103,4 +108,9 @@ export interface ExportMemberInput {
   w: number
   h: number
   location: FaceBox['location']
+  // When true, the quiz shows photoDataUrl directly instead of cropping the
+  // shared composite image. photoDataUrl is only sent in this case, to keep
+  // the export small for everyone else.
+  useExcelPhoto: boolean
+  photoDataUrl?: string
 }

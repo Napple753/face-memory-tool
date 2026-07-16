@@ -52,7 +52,7 @@
 import { computed, ref } from 'vue'
 import { useAnnotationStore } from '../stores/annotationStore'
 import { exportExcel, exportHtml, type PhotoReplacement } from '../utils/api'
-import type { ExportMemberInput } from '../types'
+import type { ExportMemberInput, FaceBox, Member } from '../types'
 
 const store = useAnnotationStore()
 const title = ref('Team Faces')
@@ -70,9 +70,18 @@ const hasOriginalExcel = computed(
 const hasPhotoColumn = computed(() => !!store.columnMapping?.photoColumn)
 const canExportExcel = computed(() => hasOriginalExcel.value && hasPhotoColumn.value)
 
+// The user's photoSource choice only takes effect if that member actually
+// has an Excel photo to fall back to -- guards against a stale 'excel'
+// choice left over from a since-changed name assignment.
+function usesExcelPhoto(box: FaceBox, member: Member | undefined): boolean {
+  return box.photoSource === 'excel' && !!member?.photoDataUrl
+}
+
 const excelPhotoReplacements = computed<PhotoReplacement[]>(() =>
   store.boxes.flatMap((box) => {
     if (box.location !== 'in-photo' || !box.memberId) return []
+    const member = store.members.find((m) => m.id === box.memberId)
+    if (usesExcelPhoto(box, member)) return [] // keep the existing Excel photo untouched
     const row = store.excelRows.find((r) => r.id === box.memberId)
     if (!row) return []
     return [
@@ -96,6 +105,7 @@ const exportMembers = computed<ExportMemberInput[]>(() =>
   store.boxes.flatMap((box) => {
     const member = store.members.find((m) => m.id === box.memberId)
     if (!member) return []
+    const useExcelPhoto = usesExcelPhoto(box, member)
     return [
       {
         id: member.id,
@@ -107,6 +117,8 @@ const exportMembers = computed<ExportMemberInput[]>(() =>
         w: box.w,
         h: box.h,
         location: box.location,
+        useExcelPhoto,
+        photoDataUrl: useExcelPhoto ? member.photoDataUrl : undefined,
       },
     ]
   }),
