@@ -328,22 +328,56 @@ def _floating_images(
     return results
 
 
-def _floating_image_records(
-    zf: zipfile.ZipFile, sheet_part: str, sheet_root: ET.Element, row_count: int
-) -> list[dict]:
-    """Like `_floating_images`, but exposes the raw anchor/media handles
-    instead of an encoded data URL, so a writer can locate the exact zip
-    path (to swap the image bytes) and XML element (to clear a stale crop
-    rect) to replace an image in place. Each record: {col, row_index,
-    media_path, src_rect, drawing_part, drawing_root, blip_fill_el}.
+def _sheet_drawing(
+    zf: zipfile.ZipFile, sheet_part: str, sheet_root: ET.Element
+) -> tuple[str, ET.Element] | None:
+    """(drawing part path, parsed root) for the sheet's `<main:drawing>`
+    relationship, if it has one -- regardless of whether that drawing
+    currently contains any picture anchors. Used both by
+    `_floating_image_records` (reading existing pictures) and by a writer
+    that wants to add a brand-new picture to a sheet that already has this
+    plumbing in place, without having to re-create it from scratch.
     """
     drawing_el = sheet_root.find("main:drawing", _NS)
     if drawing_el is None:
-        return []
+        return None
     drawing_part = _read_rels(zf, sheet_part).get(drawing_el.get(_R_ID))
     drawing_root = _read_xml(zf, drawing_part) if drawing_part else None
     if drawing_root is None:
+        return None
+    return drawing_part, drawing_root
+
+
+def _floating_image_records(
+    zf: zipfile.ZipFile,
+    sheet_part: str,
+    sheet_root: ET.Element,
+    row_count: int,
+    sheet_drawing: tuple[str, ET.Element] | None = None,
+) -> list[dict]:
+    """Like `_floating_images`, but exposes the raw anchor/media handles
+    instead of an encoded data URL, so a writer can locate the exact zip
+    path (to swap the image bytes), XML element (to clear a stale crop
+    rect), and anchor geometry (to resize the picture's box to match a
+    replacement's aspect ratio) to replace an image in place. Each record:
+    {col, row_index, media_path, src_rect, drawing_part, drawing_root,
+    blip_fill_el, box, from_el, to_el, ext_el, xfrm_el, col_lefts}. `box` is
+    {origin_x, origin_y, cx, cy} in EMU resolved from the anchor (None if it
+    couldn't be resolved); `from_el`/`to_el`/`ext_el`/`xfrm_el` are the raw
+    elements a writer mutates to move/resize the anchor, and `col_lefts` is
+    the sheet's column-boundary table so a writer can convert an EMU x back
+    into a (col, colOff) pair. `sheet_drawing` lets a caller that already
+    resolved the sheet's (drawing part, drawing root) pass it in directly,
+    so a writer adding *new* anchors elsewhere mutates the very same tree
+    these records point at, instead of a separate re-parse of the original
+    that would silently lose either side's edits.
+    """
+    resolved = sheet_drawing if sheet_drawing is not None else _sheet_drawing(
+        zf, sheet_part, sheet_root
+    )
+    if resolved is None:
         return []
+    drawing_part, drawing_root = resolved
     drawing_rels = _read_rels(zf, drawing_part)
 
     anchors = drawing_root.findall("xdr:twoCellAnchor", _NS) + drawing_root.findall(
@@ -351,6 +385,7 @@ def _floating_image_records(
     )
     parsed = []
     max_row_seen = row_count + 1
+    max_col_seen = 1
     for anchor_el in anchors:
         blip_fill_el = anchor_el.find(".//xdr:blipFill", _NS)
         blip_el = blip_fill_el.find("a:blip", _NS) if blip_fill_el is not None else None
@@ -359,6 +394,7 @@ def _floating_image_records(
             continue
         embed_id = blip_el.get(f"{{{_NS['r']}}}embed")
         col = _int_or_none(from_el.findtext("xdr:col", namespaces=_NS))
+        from_col_off = _int_or_none(from_el.findtext("xdr:colOff", namespaces=_NS)) or 0
         from_row = _int_or_none(from_el.findtext("xdr:row", namespaces=_NS))
         from_off = _int_or_none(from_el.findtext("xdr:rowOff", namespaces=_NS)) or 0
         if not embed_id or col is None or from_row is None:
@@ -367,47 +403,157 @@ def _floating_image_records(
         if not path or path not in zf.namelist():
             continue
         src_rect = _parse_src_rect(blip_fill_el.find("a:srcRect", _NS))
+        xfrm_el = anchor_el.find("xdr:pic/xdr:spPr/a:xfrm", _NS)
 
         to_el = anchor_el.find("xdr:to", _NS)
-        to_row = to_off = ext_cy = None
+        to_row = to_off = to_col = to_col_off = ext_cy = ext_cx = None
+        oneCell_ext_el = None
         if to_el is not None:
             to_row = _int_or_none(to_el.findtext("xdr:row", namespaces=_NS))
             to_off = _int_or_none(to_el.findtext("xdr:rowOff", namespaces=_NS)) or 0
+            to_col = _int_or_none(to_el.findtext("xdr:col", namespaces=_NS))
+            to_col_off = _int_or_none(to_el.findtext("xdr:colOff", namespaces=_NS)) or 0
         else:
-            ext_el = anchor_el.find("xdr:ext", _NS)
-            if ext_el is not None and ext_el.get("cy"):
-                ext_cy = int(ext_el.get("cy"))
+            oneCell_ext_el = anchor_el.find("xdr:ext", _NS)
+            if oneCell_ext_el is not None:
+                ext_cy = int(oneCell_ext_el.get("cy")) if oneCell_ext_el.get("cy") else None
+                ext_cx = int(oneCell_ext_el.get("cx")) if oneCell_ext_el.get("cx") else None
 
         max_row_seen = max(max_row_seen, from_row, to_row or 0)
+        max_col_seen = max(max_col_seen, col, to_col or 0)
         parsed.append(
-            (col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect, blip_fill_el)
+            {
+                "col": col,
+                "from_row": from_row,
+                "from_off": from_off,
+                "from_col_off": from_col_off,
+                "to_row": to_row,
+                "to_off": to_off,
+                "to_col": to_col,
+                "to_col_off": to_col_off,
+                "ext_cy": ext_cy,
+                "ext_cx": ext_cx,
+                "ext_el": oneCell_ext_el,
+                "path": path,
+                "src_rect": src_rect,
+                "blip_fill_el": blip_fill_el,
+                "from_el": from_el,
+                "to_el": to_el,
+                "xfrm_el": xfrm_el,
+            }
         )
 
     if not parsed:
         return []
 
     row_tops = _row_tops_emu(sheet_root, max_row_seen + 2)
+    col_lefts = _col_lefts_emu(sheet_root, max_col_seen + 2)
 
     records = []
-    for col, from_row, from_off, to_row, to_off, ext_cy, path, src_rect, blip_fill_el in parsed:
-        img_top = row_tops[from_row] + from_off
+    for p in parsed:
+        img_top = row_tops[p["from_row"]] + p["from_off"]
         img_bottom = (
-            row_tops[to_row] + to_off if to_row is not None else img_top + (ext_cy or 0)
+            row_tops[p["to_row"]] + p["to_off"]
+            if p["to_row"] is not None
+            else img_top + (p["ext_cy"] or 0)
         )
         row_index = _best_overlapping_row(img_top, img_bottom, row_tops, row_count)
-        if row_index is not None:
-            records.append(
-                {
-                    "col": col,
-                    "row_index": row_index,
-                    "media_path": path,
-                    "src_rect": src_rect,
-                    "drawing_part": drawing_part,
-                    "drawing_root": drawing_root,
-                    "blip_fill_el": blip_fill_el,
-                }
-            )
+        if row_index is None:
+            continue
+
+        origin_x = col_lefts[p["col"]] + p["from_col_off"]
+        if p["to_col"] is not None:
+            cx = col_lefts[p["to_col"]] + p["to_col_off"] - origin_x
+        else:
+            cx = p["ext_cx"]
+        cy = img_bottom - img_top
+        box = None
+        if cx and cx > 0 and cy > 0:
+            box = {"origin_x": origin_x, "origin_y": img_top, "cx": cx, "cy": cy}
+
+        records.append(
+            {
+                "col": p["col"],
+                "row_index": row_index,
+                "media_path": p["path"],
+                "src_rect": p["src_rect"],
+                "drawing_part": drawing_part,
+                "drawing_root": drawing_root,
+                "blip_fill_el": p["blip_fill_el"],
+                "box": box,
+                "from_el": p["from_el"],
+                "to_el": p["to_el"],
+                "ext_el": p["ext_el"],
+                "xfrm_el": p["xfrm_el"],
+                "col_lefts": col_lefts,
+                "row_tops": row_tops,
+            }
+        )
     return records
+
+
+def _col_lefts_emu(sheet_root: ET.Element, num_cols: int) -> list[int]:
+    """EMU offset of the left edge of each 0-indexed column, up to
+    `num_cols` (lefts[i] is the left of column i; lefts[-1] is the right of
+    the last column). Mirrors `_row_tops_emu`, but column width is stored in
+    "characters" of the workbook's default font, which only approximately
+    converts to pixels -- this uses the standard
+    Truncate((256*w + Truncate(128/MDW))/256 * MDW) formula from Excel's own
+    file-format docs, with MDW (max digit width) fixed at 7px, the common
+    default for Calibri 11. Real column widths can render a few pixels off
+    from this estimate depending on the workbook's actual default font.
+    """
+    mdw = 7
+    default_chars = 8.0
+    fmt_el = sheet_root.find("main:sheetFormatPr", _NS)
+    if fmt_el is not None:
+        if fmt_el.get("defaultColWidth"):
+            default_chars = float(fmt_el.get("defaultColWidth"))
+        elif fmt_el.get("baseColWidth"):
+            default_chars = float(fmt_el.get("baseColWidth"))
+
+    widths_chars: dict[int, float] = {}
+    for col_el in sheet_root.findall("main:cols/main:col", _NS):
+        if not col_el.get("width"):
+            continue
+        width = float(col_el.get("width"))
+        lo, hi = int(col_el.get("min")), int(col_el.get("max"))
+        for c in range(lo, hi + 1):
+            widths_chars[c - 1] = width
+
+    def chars_to_px(chars: float) -> int:
+        return int(((256 * chars + (128 // mdw)) // 256) * mdw)
+
+    lefts = [0]
+    for i in range(num_cols):
+        px = chars_to_px(widths_chars.get(i, default_chars))
+        lefts.append(lefts[-1] + px * 9525)
+    return lefts
+
+
+def _emu_to_col(col_lefts: list[int], x_emu: float) -> tuple[int, int]:
+    """Inverse of `_col_lefts_emu`: the (0-indexed column, EMU offset into
+    that column) whose span contains `x_emu`, clamped to the sheet's
+    leading edge and to the last resolved column.
+    """
+    return _emu_to_band(col_lefts, x_emu)
+
+
+def _emu_to_row(row_tops: list[int], y_emu: float) -> tuple[int, int]:
+    """Inverse of `_row_tops_emu`: the (0-indexed row, EMU offset into that
+    row) whose span contains `y_emu`, clamped to the sheet's top edge and to
+    the last resolved row.
+    """
+    return _emu_to_band(row_tops, y_emu)
+
+
+def _emu_to_band(band_starts: list[int], pos_emu: float) -> tuple[int, int]:
+    pos_emu = max(0, round(pos_emu))
+    last = len(band_starts) - 2
+    for i in range(last + 1):
+        if pos_emu < band_starts[i + 1] or i == last:
+            return i, pos_emu - band_starts[i]
+    return 0, pos_emu  # unreachable: band_starts always has at least 2 entries
 
 
 def _parse_src_rect(src_rect_el: ET.Element | None) -> tuple[float, float, float, float] | None:
