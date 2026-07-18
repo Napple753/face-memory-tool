@@ -21,10 +21,51 @@
   tabBrowse.addEventListener('click', function () { switchTab('browse'); });
   tabQuiz.addEventListener('click', function () { switchTab('quiz'); });
 
+  // Division list is shared by the browse filter dropdown and the quiz setup checkboxes.
+  var divisions = [];
+  MEMBER_DATA.forEach(function (member) {
+    var division = member.division || '(none)';
+    if (divisions.indexOf(division) === -1) divisions.push(division);
+  });
+
+  function populateDivisionCheckboxes(container, divisionValues) {
+    divisionValues.forEach(function (division) {
+      var label = document.createElement('label');
+      label.className = 'division-option';
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = division;
+      checkbox.checked = true;
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(' ' + division));
+      container.appendChild(label);
+    });
+  }
+
+  function checkboxesIn(container) {
+    return Array.prototype.slice.call(container.querySelectorAll('input[type=checkbox]'));
+  }
+
+  function wireSelectAll(selectAllEl, listEl) {
+    selectAllEl.addEventListener('change', function () {
+      checkboxesIn(listEl).forEach(function (cb) { cb.checked = selectAllEl.checked; });
+    });
+    listEl.addEventListener('change', function () {
+      selectAllEl.checked = checkboxesIn(listEl).every(function (cb) { return cb.checked; });
+    });
+  }
+
   // ---------- Mode A: Browse ----------
   var browseWrap = document.getElementById('browse-wrap');
   var searchBox = document.getElementById('search-box');
+  var browseDivisionToggle = document.getElementById('browse-division-toggle');
+  var browseDivisionPanel = document.getElementById('browse-division-panel');
+  var browseDivisionList = document.getElementById('browse-division-checkboxes');
+  var browseSelectAll = document.getElementById('browse-select-all');
   var regions = [];
+
+  populateDivisionCheckboxes(browseDivisionList, divisions);
+  wireSelectAll(browseSelectAll, browseDivisionList);
 
   function buildRegions() {
     MEMBER_DATA.forEach(function (member) {
@@ -41,22 +82,43 @@
       region.appendChild(tag);
 
       region.dataset.name = member.name.toLowerCase();
+      region.dataset.division = member.division || '(none)';
       browseWrap.appendChild(region);
       regions.push(region);
     });
   }
 
-  searchBox.addEventListener('input', function () {
+  function applyBrowseFilter() {
     var query = searchBox.value.trim().toLowerCase();
+    var selectedDivisions = checkboxesIn(browseDivisionList)
+      .filter(function (cb) { return cb.checked; })
+      .map(function (cb) { return cb.value; });
+    var allDivisionsSelected = selectedDivisions.length === divisions.length;
+
     regions.forEach(function (region) {
-      if (!query) {
+      if (!query && allDivisionsSelected) {
         region.classList.remove('highlighted', 'dimmed');
         return;
       }
-      var match = region.dataset.name.indexOf(query) !== -1;
+      var nameMatch = !query || region.dataset.name.indexOf(query) !== -1;
+      var divisionMatch = selectedDivisions.indexOf(region.dataset.division) !== -1;
+      var match = nameMatch && divisionMatch;
       region.classList.toggle('highlighted', match);
       region.classList.toggle('dimmed', !match);
     });
+  }
+
+  searchBox.addEventListener('input', applyBrowseFilter);
+  browseDivisionList.addEventListener('change', applyBrowseFilter);
+  browseSelectAll.addEventListener('change', applyBrowseFilter);
+
+  browseDivisionToggle.addEventListener('click', function () {
+    browseDivisionPanel.hidden = !browseDivisionPanel.hidden;
+  });
+  document.addEventListener('click', function (event) {
+    if (browseDivisionPanel.hidden) return;
+    if (event.target === browseDivisionToggle || browseDivisionPanel.contains(event.target)) return;
+    browseDivisionPanel.hidden = true;
   });
 
   // ---------- Mode B: Quiz ----------
@@ -77,34 +139,16 @@
   var rememberedBtn = document.getElementById('btn-remembered');
   var forgotBtn = document.getElementById('btn-forgot');
   var restartBtn = document.getElementById('restart-quiz');
+  var shortcutsHelpBtn = document.getElementById('shortcuts-help-btn');
+  var shortcutsModal = document.getElementById('shortcuts-modal');
+  var closeShortcutsBtn = document.getElementById('close-shortcuts');
 
-  var divisions = [];
-  MEMBER_DATA.forEach(function (member) {
-    var division = member.division || '(none)';
-    if (divisions.indexOf(division) === -1) divisions.push(division);
-  });
-  divisions.forEach(function (division) {
-    var label = document.createElement('label');
-    label.className = 'division-option';
-    var checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = division;
-    checkbox.checked = true;
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(' ' + division));
-    divisionList.appendChild(label);
-  });
+  populateDivisionCheckboxes(divisionList, divisions);
+  wireSelectAll(selectAll, divisionList);
 
   function divisionCheckboxes() {
-    return Array.prototype.slice.call(divisionList.querySelectorAll('input[type=checkbox]'));
+    return checkboxesIn(divisionList);
   }
-
-  selectAll.addEventListener('change', function () {
-    divisionCheckboxes().forEach(function (cb) { cb.checked = selectAll.checked; });
-  });
-  divisionList.addEventListener('change', function () {
-    selectAll.checked = divisionCheckboxes().every(function (cb) { return cb.checked; });
-  });
 
   var pool = [];
   var current = null;
@@ -221,6 +265,60 @@
 
   window.addEventListener('resize', function () {
     if (!sessionEl.hidden && current) showFaceCrop(current);
+  });
+
+  // ---------- Keyboard shortcuts ----------
+  function openShortcuts() {
+    shortcutsModal.hidden = false;
+  }
+  function closeShortcuts() {
+    shortcutsModal.hidden = true;
+  }
+  shortcutsHelpBtn.addEventListener('click', openShortcuts);
+  closeShortcutsBtn.addEventListener('click', closeShortcuts);
+  shortcutsModal.addEventListener('click', function (event) {
+    if (event.target === shortcutsModal) closeShortcuts();
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === '?') {
+      event.preventDefault();
+      if (shortcutsModal.hidden) openShortcuts(); else closeShortcuts();
+      return;
+    }
+
+    if (!shortcutsModal.hidden) {
+      if (event.key === 'Escape') closeShortcuts();
+      return;
+    }
+
+    if (event.key === 'Escape' && !browseDivisionPanel.hidden) {
+      browseDivisionPanel.hidden = true;
+      return;
+    }
+
+    // Don't hijack keys while the user is typing in the browse search box.
+    if (document.activeElement === searchBox) return;
+
+    if (viewQuiz.hidden || sessionEl.hidden) return;
+
+    var answerShown = !answerEl.hidden;
+
+    if (!answerShown) {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        showAnswerBtn.click();
+      }
+      return;
+    }
+
+    if (event.key === '1' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      forgotBtn.click();
+    } else if (event.key === '2' || event.key === 'ArrowRight' || event.key === ' ') {
+      event.preventDefault();
+      rememberedBtn.click();
+    }
   });
 
   // ---------- init ----------
