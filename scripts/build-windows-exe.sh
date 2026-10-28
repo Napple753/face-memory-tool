@@ -32,6 +32,9 @@ pyinstaller \
   --add-data "$root/output-template;output-template" \
   --collect-all cv2 \
   --collect-all uvicorn \
+  --collect-all webview \
+  --collect-all clr_loader \
+  --hidden-import clr \
   --distpath dist \
   --workpath build \
   --specpath build \

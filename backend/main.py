@@ -246,10 +246,26 @@ def _check_port_free(port: int) -> None:
         probe.close()
 
 
+def _wait_until_listening(port: int, timeout: float = 10.0) -> None:
+    """Poll the loopback port until the server accepts a connection, so the
+    webview window isn't opened against a server that isn't up yet."""
+    import socket
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.2)
+            try:
+                probe.connect(("127.0.0.1", port))
+                return
+            except OSError:
+                time.sleep(0.1)
+
+
 if __name__ == "__main__":
     import sys
     import threading
-    import webbrowser
 
     import uvicorn
 
@@ -269,13 +285,50 @@ if __name__ == "__main__":
         _pause_if_frozen()
         raise
 
-    url = f"http://localhost:{port}"
+    url = f"http://127.0.0.1:{port}"
     print(f"Open this in your browser: {url}")
-    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+
+    # 127.0.0.1 only (not 0.0.0.0): this entry point is the manual/exe run
+    # path (Docker's CMD runs uvicorn directly instead, see Dockerfile, and
+    # still needs 0.0.0.0 to be reachable through Docker's port mapping),
+    # so the exe never exposes a port beyond the local machine.
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, loop="asyncio", http="h11")
+    server = uvicorn.Server(config)
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    server_thread.start()
+    _wait_until_listening(port)
+
     try:
-        # Explicit asyncio/h11 (pure Python, always available) instead of
-        # uvicorn's "auto" detection, which would otherwise need uvloop/
-        # httptools bundled into the frozen exe for no benefit here.
-        uvicorn.run(app, host="0.0.0.0", port=port, loop="asyncio", http="h11")
-    finally:
+        # Native app window (WebView2 on Windows -- the same engine Tauri
+        # itself uses there) instead of the system browser, so the tool
+        # doesn't present as "a browser tab pointed at a web server".
+        import webview
+
+        webview.create_window("Face Memory Tool", url, width=1280, height=860)
+        webview.start()
+    except ImportError:
+        # Not installed -- expected in the plain dev/Docker environment,
+        # which doesn't need it. Fall back to the system browser.
+        import webbrowser
+
+        webbrowser.open(url)
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            pass
+    except Exception as e:
+        # pywebview installed but failed at runtime (e.g. WebView2 runtime
+        # missing on this machine) -- still usable via the browser, but
+        # surface why so it doesn't look like it silently did nothing.
+        print(f"Could not open the app window ({e}); opening in your browser instead.", file=sys.stderr)
+        import webbrowser
+
+        webbrowser.open(url)
+        try:
+            server_thread.join()
+        except KeyboardInterrupt:
+            pass
         _pause_if_frozen()
+    finally:
+        server.should_exit = True
+        server_thread.join(timeout=5)

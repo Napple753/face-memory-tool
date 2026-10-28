@@ -46,12 +46,14 @@ don't need to remember the port.
 
 Each tagged release (`vX.Y.Z`) also publishes a Windows executable --
 see the repo's Releases page, download `FaceMemoryTool-vX.Y.Z-windows.zip`,
-unzip it anywhere, and double-click `FaceMemoryTool.exe`. It opens your
-default browser to the tool automatically; closing the console window
-that comes with it stops the tool. In-progress sessions are saved to a
+unzip it anywhere, and double-click `FaceMemoryTool.exe`. It opens in its
+own app window (not a browser tab); closing that window, or the console
+window that comes with it, stops the tool. The app only listens on
+`127.0.0.1` (loopback), so it's never reachable from the network -- it's
+not a server exposed to anyone else. In-progress sessions are saved to a
 `data` folder created next to the .exe, so they survive closing and
 reopening it. Built by `.github/workflows/release.yml` via
-`scripts/build-windows-exe.sh` (PyInstaller).
+`scripts/build-windows-exe.sh` (PyInstaller + pywebview).
 
 ## How to use it
 
