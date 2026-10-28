@@ -3,14 +3,18 @@ Single-file JSON persistence for a lone user's in-progress annotation session.
 
 Lives on a volume mounted outside the app code (see docker-compose.yml) so it
 survives container restarts and image rebuilds, but is never baked into the
-image or committed to the repo.
+image or committed to the repo. In the packaged Windows exe (no Docker
+volume), `paths.writable_dir()` instead points next to the .exe itself, so
+the same persistence-across-restarts behavior holds there too.
 """
 
 import json
 import os
 from typing import Any
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+import paths
+
+DATA_DIR = paths.writable_dir("data")
 PROGRESS_PATH = os.path.join(DATA_DIR, "progress.json")
 ORIGINAL_EXCEL_PATH = os.path.join(DATA_DIR, "original.xlsx")
 

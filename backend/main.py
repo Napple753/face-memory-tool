@@ -25,6 +25,7 @@ import excel_photo_replacer
 import face_detector
 import html_generator
 import image_compositor
+import paths
 import progress_store
 
 app = FastAPI()
@@ -212,7 +213,7 @@ async def get_original_excel():
     )
 
 
-static_dir = os.path.join(os.path.dirname(__file__), "static")
+static_dir = paths.resource_dir("backend", "static")
 if os.path.isdir(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
@@ -228,20 +229,53 @@ def _check_port_free(port: int) -> None:
     try:
         probe.bind(("0.0.0.0", port))
     except OSError:
-        print(
-            f"\nPort {port} is already in use. Set APP_PORT to a free port and "
-            f"try again, e.g.:\n\n    APP_PORT=8001 docker compose up --build\n",
-            file=sys.stderr,
-        )
+        if getattr(sys, "frozen", False):
+            hint = (
+                "Close any other copy of this program that may already be running, "
+                "or set the APP_PORT environment variable to a free port before "
+                "launching it again."
+            )
+        else:
+            hint = (
+                "Set APP_PORT to a free port and try again, e.g.:\n\n"
+                "    APP_PORT=8001 docker compose up --build"
+            )
+        print(f"\nPort {port} is already in use. {hint}\n", file=sys.stderr)
         sys.exit(1)
     finally:
         probe.close()
 
 
 if __name__ == "__main__":
+    import sys
+    import threading
+    import webbrowser
+
     import uvicorn
 
+    frozen = getattr(sys, "frozen", False)
+
+    def _pause_if_frozen() -> None:
+        # A double-clicked .exe's console closes the instant the process
+        # exits, so without this an error message would flash and vanish
+        # before the user (likely non-technical) can read it.
+        if frozen:
+            input("Press Enter to close this window...")
+
     port = int(os.environ.get("APP_PORT", 8000))
-    _check_port_free(port)
-    print(f"Open this in your browser: http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    try:
+        _check_port_free(port)
+    except SystemExit:
+        _pause_if_frozen()
+        raise
+
+    url = f"http://localhost:{port}"
+    print(f"Open this in your browser: {url}")
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    try:
+        # Explicit asyncio/h11 (pure Python, always available) instead of
+        # uvicorn's "auto" detection, which would otherwise need uvloop/
+        # httptools bundled into the frozen exe for no benefit here.
+        uvicorn.run(app, host="0.0.0.0", port=port, loop="asyncio", http="h11")
+    finally:
+        _pause_if_frozen()

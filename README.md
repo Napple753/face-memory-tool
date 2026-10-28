@@ -42,6 +42,17 @@ running the **finished tool**, not the dev setup (see below for that).
 The tool prints the exact URL to open in the terminal on startup, so you
 don't need to remember the port.
 
+### Windows: pre-built executable (no Docker)
+
+Each tagged release (`vX.Y.Z`) also publishes a Windows executable --
+see the repo's Releases page, download `FaceMemoryTool-vX.Y.Z-windows.zip`,
+unzip it anywhere, and double-click `FaceMemoryTool.exe`. It opens your
+default browser to the tool automatically; closing the console window
+that comes with it stops the tool. In-progress sessions are saved to a
+`data` folder created next to the .exe, so they survive closing and
+reopening it. Built by `.github/workflows/release.yml` via
+`scripts/build-windows-exe.sh` (PyInstaller).
+
 ## How to use it
 
 1. **Upload** -- pick your roster (`.xlsx`) and the group photo. Embedded
@@ -108,6 +119,7 @@ backend/            FastAPI app: Excel parsing, face detection,
 frontend/            Vue 3 + Vuetify + TypeScript annotation tool
 output-template/    Plain HTML/JS template for the final deliverable file
                      (browse view + quiz), inlined by html_generator.py
+scripts/            Dev/CI helper scripts (Windows exe build via PyInstaller)
 .devcontainer/      VS Code dev container config
 Dockerfile          Production image (multi-stage: Node build -> Python runtime)
 Dockerfile.dev      Dev-container image (Python + Node together)

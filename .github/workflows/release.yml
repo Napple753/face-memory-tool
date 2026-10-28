@@ -1,0 +1,60 @@
+name: Release Windows executable
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy frontend build into backend static dir
+        run: |
+          rm -rf backend/static
+          cp -r frontend/dist backend/static
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend + build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-build.txt
+
+      - name: Download face-detection model
+        run: bash backend/download_models.sh
+
+      - name: Build executable
+        run: bash scripts/build-windows-exe.sh
+
+      - name: Zip executable
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/FaceMemoryTool.exe -DestinationPath "FaceMemoryTool-${{ github.ref_name }}-windows.zip"
+
+      - name: Attach zip to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: FaceMemoryTool-${{ github.ref_name }}-windows.zip

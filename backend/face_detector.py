@@ -17,7 +17,9 @@ import os
 import cv2
 import numpy as np
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet.onnx")
+import paths
+
+MODEL_PATH = paths.resource_dir("backend", "models", "face_detection_yunet.onnx")
 
 # YuNet's box is a tight face crop (eyebrows to chin, cheek to cheek). Expand
 # it to frame the whole head instead -- hair/forehead need the most room,

@@ -29,6 +29,13 @@ backend/models/*
 # Persisted in-progress session data (docker volume mount target)
 /data/
 
+# Local roster spreadsheets (test/sample data, not part of the app)
+*.xlsx
+
+# PyInstaller build output (scripts/build-windows-exe.sh)
+/dist/
+/build/
+
 # OS / editor
 .DS_Store
 .vscode/

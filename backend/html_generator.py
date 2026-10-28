@@ -15,7 +15,9 @@ import html
 import json
 import os
 
-TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "..", "output-template")
+import paths
+
+TEMPLATE_DIR = paths.resource_dir("output-template")
 
 
 def _no_script_close(payload: str) -> str:
