@@ -138,10 +138,12 @@
     left: 0;
     background: rgba(0, 0, 0, 0.85);
     color: #fff;
-    padding: 4px 8px;
+    padding: 6px 10px;
     font-size: 13px;
-    line-height: 1.3;
-    white-space: nowrap;
+    line-height: 1.4;
+    white-space: pre-line;
+    width: max-content;
+    max-width: 260px;
     border-radius: 4px;
     display: none;
     pointer-events: none;
@@ -318,7 +320,7 @@
 <main>
   <section id="view-browse">
     <div class="browse-controls">
-      <input id="search-box" type="text" placeholder="Search by name&hellip;" autocomplete="off" />
+      <input id="search-box" type="text" placeholder="Search by name or bio&hellip;" autocomplete="off" />
       <div class="dropdown">
         <button id="browse-division-toggle" type="button" class="dropdown-toggle">Divisions &#9662;</button>
         <div id="browse-division-panel" class="dropdown-panel" hidden>

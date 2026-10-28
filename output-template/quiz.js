@@ -78,10 +78,11 @@
 
       var tag = document.createElement('div');
       tag.className = 'tag';
-      tag.textContent = member.name + (member.division ? ' — ' + member.division : '');
+      tag.textContent = member.answerText || member.name;
       region.appendChild(tag);
 
       region.dataset.name = member.name.toLowerCase();
+      region.dataset.answer = (member.answerText || '').toLowerCase();
       region.dataset.division = member.division || '(none)';
       browseWrap.appendChild(region);
       regions.push(region);
@@ -100,9 +101,11 @@
         region.classList.remove('highlighted', 'dimmed');
         return;
       }
-      var nameMatch = !query || region.dataset.name.indexOf(query) !== -1;
+      var textMatch = !query ||
+        region.dataset.name.indexOf(query) !== -1 ||
+        region.dataset.answer.indexOf(query) !== -1;
       var divisionMatch = selectedDivisions.indexOf(region.dataset.division) !== -1;
-      var match = nameMatch && divisionMatch;
+      var match = textMatch && divisionMatch;
       region.classList.toggle('highlighted', match);
       region.classList.toggle('dimmed', !match);
     });
