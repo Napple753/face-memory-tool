@@ -11,7 +11,13 @@
 # Output: dist/FaceMemoryTool.exe
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-root="$(pwd)"
+# `pwd` on Git Bash (used by CI's `shell: bash` on windows-latest) returns a
+# POSIX-style path (/d/a/...). Passed straight to the native Windows
+# pyinstaller.exe, that becomes a malformed \d\a\... path instead of
+# D:\a\..., so PyInstaller can't find the source files. `pwd -W` gives the
+# drive-letter form Git Bash itself provides for exactly this situation;
+# it doesn't exist on Linux/macOS, hence the fallback.
+root="$(pwd -W 2>/dev/null || pwd)"
 
 # Sources must be absolute: PyInstaller resolves relative --add-data paths
 # against --specpath (where it writes the generated .spec), not the CWD
