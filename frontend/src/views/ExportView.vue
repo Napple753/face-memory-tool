@@ -130,7 +130,9 @@ function downloadBlob(blob: Blob, filename: string) {
   link.href = url
   link.download = filename
   link.click()
-  URL.revokeObjectURL(url)
+  // Revoke later, not synchronously: in the exe's WebView2 window the
+  // download waits on a native Save As dialog and may still need the URL.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 async function onGenerate() {

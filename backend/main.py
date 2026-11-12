@@ -304,6 +304,10 @@ if __name__ == "__main__":
         # doesn't present as "a browser tab pointed at a web server".
         import webview
 
+        # pywebview cancels every download by default (WebView2 backend
+        # sets args.Cancel on DownloadStarting), which would silently drop
+        # the exported HTML/Excel. Enabled, it shows a Save As dialog.
+        webview.settings["ALLOW_DOWNLOADS"] = True
         webview.create_window("Face Memory Tool", url, width=1280, height=860)
         webview.start()
     except ImportError:
